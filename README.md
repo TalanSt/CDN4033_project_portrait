@@ -15,7 +15,9 @@ The frontend and backend are both written in JavaScript.
 ## Prerequisites
 
 [NodeJS](https://nodejs.org/en) is required to run the program.
+
 [Git](https://git-scm.com/) is required to install updates and push changes.
+
 [Github CLI](https://cli.github.com/) and [Github Desktop](https://desktop.github.com/download/) may be useful.
 
 ## Running
