@@ -1,0 +1,6 @@
+# Keys and such
+
+cert.pem
+key.pem
+./*/key.pem
+./*/cert.pem

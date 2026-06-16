@@ -20,6 +20,8 @@ The frontend and backend are both written in JavaScript.
 
 [Github CLI](https://cli.github.com/) and [Github Desktop](https://desktop.github.com/download/) may be useful.
 
+[OpenSSL](https://openssl-library.org/) will be needed for HTTPS support.
+
 ## Running
 
 ### Installation
@@ -45,14 +47,33 @@ Both scripts should be identical. Run them from your terminal.
 
 ### Manual
 
-If you want to run the backend without using the scripts:
+If you want to run it without using the scripts:
+
+First you will need to generate a private key and a certificate for HTTPS.
+Run the following in the root directory and follow the prompts:
+
 
 ```bash
-cd ./backend/
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 365 -nodes
+```
+
+*Note that this certificate and private key are not password protected.*
+
+To run the backend, run:
+
+```bash
+# Update the repository to latest, run this every time.
 git pull origin main
+# Move terminal into backend
+cd ./backend/
+# Download and install npm modules
 npm install
+# Set up config on first run
 node set_up_config.js
+# Starts the backend
 npm start
 ```
 
 (`set_up_config.js` is not implemented yet, skip it.)
+
+View ./backend/api_docs.md for information on how to utilize the API.
