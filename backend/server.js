@@ -2,6 +2,7 @@ const fs = require("fs");
 const http = require("http");
 const https = require("https");
 const path = require("path");
+const { Sequelize } = require("sequelize");
 
 let privateKey = fs.readFileSync("../key.pem", "utf-8");
 let certificate = fs.readFileSync("../cert.pem", "utf-8");
@@ -18,7 +19,7 @@ const httpsPort = 3001;
 
 console.log("Reading files and importing endpoints.");
 
-const files = fs.readdirSync("./api/").filter(
+let files = fs.readdirSync("./api/").filter(
     (str) => path.extname(str) === '.js');
 
 files.forEach(async (file) => {
@@ -30,6 +31,19 @@ files.forEach(async (file) => {
 
     await fileIn.endpoint(app);
 });
+
+// sync the database
+console.log("Syncing database");
+
+/**
+ * @type {Sequelize}
+ */
+const sequelize = require("./database/setup.js");
+const defUser = require("./database/Model_User.js");
+
+const user = defUser(sequelize.sequelize);
+
+console.log("Listening for HTTP and HTTPS calls.");
 
 let httpServer = http.createServer(app);
 let httpsServer = https.createServer(credentials, app);

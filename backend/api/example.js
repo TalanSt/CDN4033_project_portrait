@@ -14,8 +14,10 @@ async function endpoint(app) {
     });
 
     app.get("/api/example", (req, res) => {
-        res.send(data);
+        res.json(data);
     });
+
+
 }
 
 module.exports = { endpoint }
