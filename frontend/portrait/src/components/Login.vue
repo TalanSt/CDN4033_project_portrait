@@ -1,10 +1,12 @@
 <template>
   <div class="login-container">
     <div class="login-card">
-      <h2>Welcome Back!</h2>
-      <p class="subtitle">Please sign in to your account</p>
+      <h2>{{ isLogin ? 'Welcome Back!' : 'Create an Account' }}</h2>
+      <p class="subtitle">
+        {{ isLogin ? 'Please sign in to your account' : 'Sign up to get started' }}
+      </p>
 
-      <form @submit.prevent="handleLogin">
+      <form @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="username">Username</label>
           <input
@@ -31,13 +33,38 @@
           <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
         </div>
 
+        <div v-if="!isLogin" class="form-group">
+          <label for="confirmPassword">Confirm Password</label>
+          <input
+            type="password"
+            id="confirmPassword"
+            v-model="confirmPassword"
+            placeholder="••••••••"
+            :class="{ 'input-error': errors.confirmPassword }"
+            required
+          />
+          <span v-if="errors.confirmPassword" class="error-text">{{ errors.confirmPassword }}</span>
+        </div>
+
         <button type="submit" :disabled="isLoading">
-          <span v-if="isLoading">Signing in...</span>
-          <span v-else>Sign In</span>
+          <span v-if="isLoading">Processing...</span>
+          <span v-else>{{ isLogin ? 'Sign In' : 'Register' }}</span>
         </button>
       </form>
 
       <p v-if="errorMessage" class="global-error">{{ errorMessage }}</p>
+      <p v-if="successMessage" class="global-success">{{ successMessage }}</p>
+
+      <div class="toggle-footer">
+        <p v-if="isLogin">
+          Don't have an account?
+          <a href="#" @click.prevent="toggleState">Create an account</a>
+        </p>
+        <p v-else>
+          Already have an account?
+          <a href="#" @click.prevent="toggleState">Sign in</a>
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -45,55 +72,92 @@
 <script setup>
 import { ref } from 'vue'
 
-// Reactive state for form fields
-const username = ref('')
-const password = ref('')
+// Define the component events
+const emit = defineEmits(['login-success'])
+
+// UI State
+const isLogin = ref(true)
 const isLoading = ref(false)
 const errorMessage = ref('')
-const errors = ref({ username: '', password: '' })
+const successMessage = ref('')
 
-// Basic Client-Side Validation
+// Form Fields
+const username = ref('')
+const password = ref('')
+const confirmPassword = ref('')
+
+// Field-Specific Errors
+const errors = ref({ username: '', password: '', confirmPassword: '' })
+
+// Reset form fields when switching views
+const toggleState = () => {
+  isLogin.value = !isLogin.value
+  username.value = ''
+  password.value = ''
+  confirmPassword.value = ''
+  errorMessage.value = ''
+  successMessage.value = ''
+  errors.value = { username: '', password: '', confirmPassword: '' }
+}
+
+// Client-side validation logic
 const validateForm = () => {
   let isValid = true
-  errors.value = { username: '', password: '' }
+  errors.value = { username: '', password: '', confirmPassword: '' }
 
-  if (password.value.length < 6) {
-    errors.value.username = 'Please enter a valid username.'
+  if (username.value.trim().length < 3) {
+    errors.value.username = 'Username must be at least 3 characters.'
     isValid = false
   }
+
   if (password.value.length < 6) {
     errors.value.password = 'Password must be at least 6 characters.'
     isValid = false
   }
 
+  if (!isLogin.value) {
+    if (password.value !== confirmPassword.value) {
+      errors.value.confirmPassword = 'Passwords do not match.'
+      isValid = false
+    }
+  }
+
   return isValid
 }
 
-// Form Submission Handler
-const handleLogin = async () => {
+// Unified submission handler
+const handleSubmit = async () => {
   errorMessage.value = ''
+  successMessage.value = ''
 
   if (!validateForm()) return
 
   isLoading.value = true
 
   try {
-    // Fake API Call Simulation
-    await new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (username.value === 'john smith' && password.value === 'password123') {
-          resolve({ token: 'fake-jwt-token' })
-        } else {
-          reject(new Error('Invalid username or password.'))
-        }
-      }, 1500)
-    })
+    if (isLogin.value) {
+      // --- Handle Login Process ---
+      await new Promise((resolve, reject) => {
+        setTimeout(() => {
+          if (username.value === 'john smith' && password.value === 'password123') {
+            resolve()
+          } else {
+            reject(new Error('Invalid username or password.'))
+          }
+        }, 1200)
+      })
 
-    alert('Login successful!')
-    // Redirect user or save token to local storage/Pinia here
+      // Notify App.vue that authorization passed
+      emit('login-success')
 
+    } else {
+      // --- Handle Registration Process ---
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+      successMessage.value = 'Account created successfully! You can now log in.'
+      isLogin.value = true
+    }
   } catch (err) {
-    errorMessage.value = err.message || 'Something went wrong.'
+    errorMessage.value = err.message || 'An error occurred.'
   } finally {
     isLoading.value = false
   }
@@ -105,9 +169,10 @@ const handleLogin = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  width: 100vw;
+  height: 100vh;
   background-color: #f4f6f9;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
 }
 
 .login-card {
@@ -117,23 +182,26 @@ const handleLogin = async () => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 400px;
+  box-sizing: border-box;
+}
+
+h2, .subtitle {
+  text-align: center;
 }
 
 h2 {
   margin-bottom: 0.5rem;
   color: #333;
-  text-align: center;
 }
 
 .subtitle {
   color: #666;
-  text-align: center;
   margin-bottom: 2rem;
   font-size: 0.9rem;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   display: flex;
   flex-direction: column;
 }
@@ -155,7 +223,7 @@ input {
 
 input:focus {
   outline: none;
-  border-color: #42b883; /* Vue green */
+  border-color: #4784d8;
 }
 
 input.input-error {
@@ -168,14 +236,22 @@ input.input-error {
   margin-top: 0.25rem;
 }
 
-.global-error {
-  color: #ff5252;
-  background-color: #ffebee;
+.global-error, .global-success {
   padding: 0.75rem;
   border-radius: 5px;
   text-align: center;
   margin-top: 1rem;
   font-size: 0.9rem;
+}
+
+.global-error {
+  color: #ff5252;
+  background-color: #ffebee;
+}
+
+.global-success {
+  color: #2e7d32;
+  background-color: #e8f5e9;
 }
 
 button {
@@ -188,6 +264,7 @@ button {
   font-size: 1rem;
   font-weight: bold;
   cursor: pointer;
+  margin-top: 0.5rem;
   transition: background-color 0.2s;
 }
 
@@ -198,5 +275,21 @@ button:hover {
 button:disabled {
   background-color: #a8caeb;
   cursor: not-allowed;
+}
+
+.toggle-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.toggle-footer a {
+  color: #4784d8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.toggle-footer a:hover {
+  text-decoration: underline;
 }
 </style>

@@ -1,22 +1,25 @@
 <template>
-  <Login />
+  <Dashboard v-if="isAuthenticated" />
+
+  <Login v-else @login-success="handleLoginSuccess" />
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import Login from './components/Login.vue'
+import Dashboard from './components/Dashboard.vue'
+
+const isAuthenticated = ref(false)
+
+const handleLoginSuccess = () => {
+  isAuthenticated.value = true
+}
 </script>
 
 <style>
-/* Reset body and html defaults globally to clear out system margins and dark themes */
-html, body {
+html, body, #app {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  background-color: #ffffff; /* Sets default fallback background to white */
-}
-
-#app {
   width: 100%;
   height: 100%;
 }

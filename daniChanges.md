@@ -11,3 +11,4 @@
 - Enable seamless integration between the frontend and backend, for connection to the APIs & Database
 - Prepare the sqlite database file with a .sql file to create it.
 - setup a custom favicon
+- Set up connection between account creation and login with the database to create and pull the login data
