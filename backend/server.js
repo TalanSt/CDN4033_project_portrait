@@ -38,10 +38,20 @@ console.log("Syncing database");
 /**
  * @type {Sequelize}
  */
-const sequelize = require("./database/setup.js");
-const defUser = require("./database/Model_User.js");
+const sequelize = new Sequelize({
+    dialect: "sqlite",
+    storage: "./database/storage/data.sqlite"
+});
 
-const user = defUser(sequelize.sequelize);
+// Confirm the connection.
+try {
+    sequelize.authenticate();
+    console.log("Successfully connected to database.");
+}
+catch (error) {
+    console.error("Could not connect to database:", error);
+}
+
 
 console.log("Listening for HTTP and HTTPS calls.");
 
