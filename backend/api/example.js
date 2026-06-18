@@ -1,10 +1,12 @@
 const express = require("express");
 const fs = require("fs/promises");
+const { Sequelize } = require("sequelize");
 
 /**
  * @param {express.Application}
+ * @param { Sequelize }
  */
-async function endpoint(app) {
+async function endpoint(app, sequelize) {
     console.log("Hello from example!");
 
     const data = await fs.readFile("api/example_response.json", "utf8");
