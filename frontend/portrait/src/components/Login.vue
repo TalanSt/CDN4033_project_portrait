@@ -1,5 +1,5 @@
 <template>
-  <div class="login-container">
+  <div :class="['login-container', { 'dark-mode': isDark }]">
     <div class="login-card">
       <h2>{{ isLogin ? 'Welcome Back!' : 'Create an Account' }}</h2>
       <p class="subtitle">
@@ -72,24 +72,23 @@
 <script setup>
 import { ref } from 'vue'
 
-// Define the component events
+// Read Theme inputs handed down from parent root scope
+defineProps({
+  isDark: Boolean
+})
+
 const emit = defineEmits(['login-success'])
 
-// UI State
 const isLogin = ref(true)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
-// Form Fields
 const username = ref('')
 const password = ref('')
 const confirmPassword = ref('')
-
-// Field-Specific Errors
 const errors = ref({ username: '', password: '', confirmPassword: '' })
 
-// Reset form fields when switching views
 const toggleState = () => {
   isLogin.value = !isLogin.value
   username.value = ''
@@ -100,43 +99,32 @@ const toggleState = () => {
   errors.value = { username: '', password: '', confirmPassword: '' }
 }
 
-// Client-side validation logic
 const validateForm = () => {
   let isValid = true
   errors.value = { username: '', password: '', confirmPassword: '' }
-
   if (username.value.trim().length < 3) {
     errors.value.username = 'Username must be at least 3 characters.'
     isValid = false
   }
-
   if (password.value.length < 6) {
     errors.value.password = 'Password must be at least 6 characters.'
     isValid = false
   }
-
-  if (!isLogin.value) {
-    if (password.value !== confirmPassword.value) {
-      errors.value.confirmPassword = 'Passwords do not match.'
-      isValid = false
-    }
+  if (!isLogin.value && password.value !== confirmPassword.value) {
+    errors.value.confirmPassword = 'Passwords do not match.'
+    isValid = false
   }
-
   return isValid
 }
 
-// Unified submission handler
 const handleSubmit = async () => {
   errorMessage.value = ''
   successMessage.value = ''
-
   if (!validateForm()) return
-
   isLoading.value = true
 
   try {
     if (isLogin.value) {
-      // --- Handle Login Process ---
       await new Promise((resolve, reject) => {
         setTimeout(() => {
           if (username.value === 'john smith' && password.value === 'password123') {
@@ -146,12 +134,8 @@ const handleSubmit = async () => {
           }
         }, 1200)
       })
-
-      // Notify App.vue that authorization passed
       emit('login-success')
-
     } else {
-      // --- Handle Registration Process ---
       await new Promise((resolve) => setTimeout(resolve, 1200))
       successMessage.value = 'Account created successfully! You can now log in.'
       isLogin.value = true
@@ -173,6 +157,7 @@ const handleSubmit = async () => {
   height: 100vh;
   background-color: #f4f6f9;
   box-sizing: border-box;
+  transition: all 0.3s ease;
 }
 
 .login-card {
@@ -183,113 +168,50 @@ const handleSubmit = async () => {
   width: 100%;
   max-width: 400px;
   box-sizing: border-box;
+  transition: background 0.3s ease;
+  border: 2px solid transparent;
 }
 
-h2, .subtitle {
-  text-align: center;
-}
-
-h2 {
-  margin-bottom: 0.5rem;
-  color: #333;
-}
-
-.subtitle {
-  color: #666;
-  margin-bottom: 2rem;
-  font-size: 0.9rem;
-}
-
-.form-group {
-  margin-bottom: 1.25rem;
-  display: flex;
-  flex-direction: column;
-}
-
-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #444;
-}
-
-input {
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-}
-
-input:focus {
-  outline: none;
-  border-color: #4784d8;
-}
-
-input.input-error {
-  border-color: #ff5252;
-}
-
-.error-text {
-  color: #ff5252;
-  font-size: 0.8rem;
-  margin-top: 0.25rem;
-}
-
-.global-error, .global-success {
-  padding: 0.75rem;
-  border-radius: 5px;
-  text-align: center;
-  margin-top: 1rem;
-  font-size: 0.9rem;
-}
-
-.global-error {
-  color: #ff5252;
-  background-color: #ffebee;
-}
-
-.global-success {
-  color: #2e7d32;
-  background-color: #e8f5e9;
-}
+h2, .subtitle { text-align: center; }
+h2 { margin-bottom: 0.5rem; color: #333; }
+.subtitle { color: #666; margin-bottom: 2rem; font-size: 0.9rem; }
+.form-group { margin-bottom: 1.25rem; display: flex; flex-direction: column; }
+label { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #444; }
+input { padding: 0.75rem; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; transition: all 0.2s; }
+input:focus { outline: none; border-color: #4784d8; }
+input.input-error { border-color: #ff5252; }
+.error-text { color: #ff5252; font-size: 0.8rem; margin-top: 0.25rem; }
+.global-error { color: #ff5252; background-color: #ffebee; }
+.global-success { color: #2e7d32; background-color: #e8f5e9; }
+.global-error, .global-success { padding: 0.75rem; border-radius: 5px; text-align: center; margin-top: 1rem; font-size: 0.9rem; }
 
 button {
-  width: 100%;
-  padding: 0.75rem;
-  background-color: #4784d8;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 0.5rem;
-  transition: background-color 0.2s;
+  width: 100%; padding: 0.75rem; background-color: #4784d8; color: white; border: none;
+  border-radius: 5px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 0.5rem; transition: background-color 0.2s;
 }
+button:hover { background-color: #2a435e; }
+button:disabled { background-color: #a8caeb; cursor: not-allowed; }
+.toggle-footer { margin-top: 1.5rem; text-align: center; font-size: 0.9rem; }
+.toggle-footer a { color: #4784d8; text-decoration: none; font-weight: 600; }
+.toggle-footer a:hover { text-decoration: underline; }
 
-button:hover {
-  background-color: #2a435e;
+/* --- DARK MODE EXPLICIT INTERCEPT RULES --- */
+.login-container.dark-mode {
+  background-color: #121212;
 }
-
-button:disabled {
-  background-color: #a8caeb;
-  cursor: not-allowed;
+.login-container.dark-mode .login-card {
+  background: #1e1e1e;
+  border-color: #333;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
-
-.toggle-footer {
-  margin-top: 1.5rem;
-  text-align: center;
-  font-size: 0.9rem;
+.login-container.dark-mode h2 { color: #eee; }
+.login-container.dark-mode .subtitle { color: #aaa; }
+.login-container.dark-mode label { color: #bbb; }
+.login-container.dark-mode input {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #fff;
 }
-
-.toggle-footer a {
-  color: #4784d8;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.toggle-footer a:hover {
-  text-decoration: underline;
-}
+.login-container.dark-mode input:focus { border-color: #4784d8; }
+.login-container.dark-mode .toggle-footer p { color: #aaa; }
 </style>
