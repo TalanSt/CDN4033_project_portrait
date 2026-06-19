@@ -194,7 +194,8 @@ Body input:
     "taskDueDate": "YYYY-MM-DD",
     "category": "string",
     "isChecked": false
-}```
+}
+```
 
 taskDueDate must be able to convert into a date.
 
