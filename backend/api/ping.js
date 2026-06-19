@@ -1,23 +1,16 @@
 const express = require("express");
 const fs = require("fs/promises");
 const { Sequelize } = require("sequelize");
+const { jsonResponses } = require("../helpers");
 
 /**
  * @param {express.Application} app
  * @param { Sequelize } sequelize
  */
 async function endpoint(app, sequelize) {
-    console.log("Hello from example!");
-
-    const data = await fs.readFile("api/example_response.json", "utf8");
-
-    app.get("/", (req, res) => {
-        res.send("Hello!");
-    });
-
-    app.get("/api/example", (req, res) => {
-        res.json(data);
-    });
+    app.get("/api/ping", (req, res) => {
+        res.status(200).json(jsonResponses.success(200, "Pong!"))
+    }); 
 }
 
 module.exports = { endpoint }
