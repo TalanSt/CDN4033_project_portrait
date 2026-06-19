@@ -8,7 +8,7 @@ const { Helpers, jsonResponses } = require("../helpers.js");
  */
 async function endpoint(app, sequelize) {
     app.post("/api/register", async (req, res) => {
-        if(!req.body) 
+        if(!req.body)
             return res.status(400).json(jsonResponses.missingInput);
 
         const { username, password } = req.body;
