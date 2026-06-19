@@ -1,217 +1,210 @@
 <template>
-  <div :class="['login-container', { 'dark-mode': isDark }]">
-    <div class="login-card">
-      <h2>{{ isLogin ? 'Welcome Back!' : 'Create an Account' }}</h2>
+  <div class="login-wrapper">
+    <div class="login-card" :class="{ 'dark-mode-card': isDark }">
+      <h2>P👁rtra👁t {{ isRegistering ? 'Register' : 'Auth' }}</h2>
       <p class="subtitle">
-        {{ isLogin ? 'Please sign in to your account' : 'Sign up to get started' }}
+        {{ isRegistering ? 'Provision a new identity layout' : 'Access your secure workspace environment' }}
       </p>
 
-      <form @submit.prevent="handleSubmit">
-        <div class="form-group">
+      <form @submit.prevent="handleSubmit" novalidate class="login-form">
+        <div class="form-group" :class="{ 'has-error': errors.username && touched.username }">
           <label for="username">Username</label>
           <input
-            type="text"
             id="username"
-            v-model="username"
-            placeholder="John Smith"
-            :class="{ 'input-error': errors.username }"
-            required
+            type="text"
+            v-model="form.username"
+            @blur="touched.username = true"
+            @input="validateUsername"
+            placeholder="System username"
+            autocomplete="username"
           />
-          <span v-if="errors.username" class="error-text">{{ errors.username }}</span>
+          <span v-if="errors.username && touched.username" class="error-text">
+            ⚠️ {{ errors.username }}
+          </span>
         </div>
 
-        <div class="form-group">
+        <div class="form-group" :class="{ 'has-error': errors.password && touched.password }">
           <label for="password">Password</label>
           <input
-            type="password"
             id="password"
-            v-model="password"
-            placeholder="••••••••"
-            :class="{ 'input-error': errors.password }"
-            required
-          />
-          <span v-if="errors.password" class="error-text">{{ errors.password }}</span>
-        </div>
-
-        <div v-if="!isLogin" class="form-group">
-          <label for="confirmPassword">Confirm Password</label>
-          <input
             type="password"
-            id="confirmPassword"
-            v-model="confirmPassword"
+            v-model="form.password"
+            @blur="touched.password = true"
+            @input="validatePassword"
             placeholder="••••••••"
-            :class="{ 'input-error': errors.confirmPassword }"
-            required
+            autocomplete="current-password"
           />
-          <span v-if="errors.confirmPassword" class="error-text">{{ errors.confirmPassword }}</span>
+          <span v-if="errors.password && touched.password" class="error-text">
+            ⚠️ {{ errors.password }}
+          </span>
         </div>
 
-        <button type="submit" :disabled="isLoading">
-          <span v-if="isLoading">Processing...</span>
-          <span v-else>{{ isLogin ? 'Sign In' : 'Register' }}</span>
+        <div v-if="apiMessage" class="api-success-banner">
+          ✅ {{ apiMessage }}
+        </div>
+        <div v-if="apiError" class="api-error-banner">
+          ❌ {{ apiError }}
+        </div>
+
+        <button
+          type="submit"
+          class="submit-btn"
+          :disabled="isSubmitting || hasValidationErrors"
+        >
+          <span v-if="isSubmitting">Syncing Payload...</span>
+          <span v-else>{{ isRegistering ? 'Register Account +' : 'Authenticate →' }}</span>
         </button>
+
+        <div class="toggle-mode-container">
+          <button type="button" class="link-btn" @click="toggleMode">
+            {{ isRegistering ? 'Already have an account? Log In' : 'Need an identity profile? Create Account' }}
+          </button>
+        </div>
       </form>
-
-      <p v-if="errorMessage" class="global-error">{{ errorMessage }}</p>
-      <p v-if="successMessage" class="global-success">{{ successMessage }}</p>
-
-      <div class="toggle-footer">
-        <p v-if="isLogin">
-          Don't have an account?
-          <a href="#" @click.prevent="toggleState">Create an account</a>
-        </p>
-        <p v-else>
-          Already have an account?
-          <a href="#" @click.prevent="toggleState">Sign in</a>
-        </p>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive, computed } from 'vue'
 
-// Read Theme inputs handed down from parent root scope
 defineProps({
-  isDark: Boolean
+  isDark: { type: Boolean, default: true }
 })
 
-const emit = defineEmits(['login-success'])
+const API_URL = 'https://localhost:4430/api'
 
-const isLogin = ref(true)
-const isLoading = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
+const isRegistering = ref(false)
+const isSubmitting = ref(false)
+const apiError = ref('')
+const apiMessage = ref('')
 
-const username = ref('')
-const password = ref('')
-const confirmPassword = ref('')
-const errors = ref({ username: '', password: '', confirmPassword: '' })
+const form = reactive({ username: '', password: '' })
+const touched = reactive({ username: false, password: false })
+const errors = reactive({ username: '', password: '' })
 
-const toggleState = () => {
-  isLogin.value = !isLogin.value
-  username.value = ''
-  password.value = ''
-  confirmPassword.value = ''
-  errorMessage.value = ''
-  successMessage.value = ''
-  errors.value = { username: '', password: '', confirmPassword: '' }
+const validateUsername = () => {
+  if (!form.username) {
+    errors.username = 'Username is required.'
+  } else if (form.username.includes(' ')) {
+    errors.username = 'Username cannot contain spaces.'
+  } else if (form.username.trim().length < 3) {
+    errors.username = 'Username must be at least 3 characters long.'
+  } else {
+    errors.username = ''
+  }
 }
 
-const validateForm = () => {
-  let isValid = true
-  errors.value = { username: '', password: '', confirmPassword: '' }
-  if (username.value.trim().length < 3) {
-    errors.value.username = 'Username must be at least 3 characters.'
-    isValid = false
+const validatePassword = () => {
+  if (!form.password) {
+    errors.password = 'Password input cannot be blank.'
+  } else if (form.password.length < 6) {
+    errors.password = 'Password requires at least 6 characters.'
+  } else {
+    errors.password = ''
   }
-  if (password.value.length < 6) {
-    errors.value.password = 'Password must be at least 6 characters.'
-    isValid = false
-  }
-  if (!isLogin.value && password.value !== confirmPassword.value) {
-    errors.value.confirmPassword = 'Passwords do not match.'
-    isValid = false
-  }
-  return isValid
+}
+
+const hasValidationErrors = computed(() => {
+  const usernameInvalid = !form.username || form.username.includes(' ') || form.username.trim().length < 3
+  const passwordInvalid = !form.password || form.password.length < 6
+  return usernameInvalid || passwordInvalid || !!errors.username || !!errors.password
+})
+
+const toggleMode = () => {
+  isRegistering.value = !isRegistering.value
+  apiError.value = ''
+  apiMessage.value = ''
+  // Clear layout inputs safely
+  form.username = ''
+  form.password = ''
+  touched.username = false
+  touched.password = false
+  errors.username = ''
+  errors.password = ''
 }
 
 const handleSubmit = async () => {
-  errorMessage.value = ''
-  successMessage.value = ''
-  if (!validateForm()) return
-  isLoading.value = true
+  touched.username = true
+  touched.password = true
+  validateUsername()
+  validatePassword()
+
+  if (hasValidationErrors.value) return
+
+  isSubmitting.value = true
+  apiError.value = ''
+  apiMessage.value = ''
+
+  // Shift target route based on structural functional state
+  const endpoint = isRegistering.value ? 'register' : 'login'
 
   try {
-    if (isLogin.value) {
-      await new Promise((resolve, reject) => {
-        setTimeout(() => {
-          if (username.value === 'john smith' && password.value === 'password123') {
-            resolve()
-          } else {
-            reject(new Error('Invalid username or password.'))
-          }
-        }, 1200)
-      })
-      emit('login-success')
+    const response = await fetch(`${API_URL}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: form.username, password: form.password })
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Transaction rejected by security matrix.')
+    }
+
+    if (isRegistering.value) {
+      apiMessage.value = 'Profile created! Switching to login pipeline...'
+      setTimeout(() => {
+        toggleMode()
+      }, 2000)
     } else {
-      await new Promise((resolve) => setTimeout(resolve, 1200))
-      successMessage.value = 'Account created successfully! You can now log in.'
-      isLogin.value = true
+      console.log('Login successful! Authorized session metadata payload received:', data)
+      // Save your data.token to localStorage and push to main dashboard canvas view here
     }
   } catch (err) {
-    errorMessage.value = err.message || 'An error occurred.'
+    apiError.value = err.message || 'Network sync timeout encountered.'
   } finally {
-    isLoading.value = false
+    isSubmitting.value = false
   }
 }
 </script>
 
 <style scoped>
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100vw;
-  height: 100vh;
-  background-color: #f4f6f9;
-  box-sizing: border-box;
-  transition: all 0.3s ease;
+.login-wrapper {
+  display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
-
 .login-card {
-  background: #ffffff;
-  padding: 2.5rem;
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 400px;
-  box-sizing: border-box;
-  transition: background 0.3s ease;
-  border: 2px solid transparent;
+  width: 100%; max-width: 400px; padding: 2.5rem; border: 2px solid #333; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); transition: all 0.3s ease;
 }
+h2 { margin: 0 0 0.5rem 0; font-size: 1.8rem; font-weight: 800; letter-spacing: 2px; text-align: center; color: #111; }
+.subtitle { margin: 0 0 2rem 0; font-size: 0.9rem; color: #666; text-align: center; }
+.login-form { display: flex; flex-direction: column; gap: 1.25rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.form-group label { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #444; letter-spacing: 0.5px; }
+.form-group input { padding: 0.75rem; border: 2px solid #333; border-radius: 4px; font-size: 1rem; outline: none; background: #fff; }
+.form-group input:focus { border-color: #4784d8; }
+.form-group.has-error input { border-color: #ef5350 !important; background-color: rgba(255, 235, 235, 0.3); }
+.error-text { font-size: 0.75rem; color: #d32f2f; font-weight: 600; }
+.api-error-banner { padding: 0.75rem; border: 2px solid #c62828; background: #ffebee; color: #c62828; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }
+.api-success-banner { padding: 0.75rem; border: 2px solid #2e7d32; background: #e8f5e9; color: #2e7d32; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }
+.submit-btn { margin-top: 0.5rem; padding: 0.85rem; background: #333; color: white; border: none; border-radius: 4px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+.submit-btn:disabled { background: #ccc; color: #777; cursor: not-allowed; }
+.toggle-mode-container { text-align: center; margin-top: 0.5rem; }
+.link-btn { background: none; border: none; color: #4784d8; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: underline; }
 
-h2, .subtitle { text-align: center; }
-h2 { margin-bottom: 0.5rem; color: #333; }
-.subtitle { color: #666; margin-bottom: 2rem; font-size: 0.9rem; }
-.form-group { margin-bottom: 1.25rem; display: flex; flex-direction: column; }
-label { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; color: #444; }
-input { padding: 0.75rem; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; transition: all 0.2s; }
-input:focus { outline: none; border-color: #4784d8; }
-input.input-error { border-color: #ff5252; }
-.error-text { color: #ff5252; font-size: 0.8rem; margin-top: 0.25rem; }
-.global-error { color: #ff5252; background-color: #ffebee; }
-.global-success { color: #2e7d32; background-color: #e8f5e9; }
-.global-error, .global-success { padding: 0.75rem; border-radius: 5px; text-align: center; margin-top: 1rem; font-size: 0.9rem; }
-
-button {
-  width: 100%; padding: 0.75rem; background-color: #4784d8; color: white; border: none;
-  border-radius: 5px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 0.5rem; transition: background-color 0.2s;
-}
-button:hover { background-color: #2a435e; }
-button:disabled { background-color: #a8caeb; cursor: not-allowed; }
-.toggle-footer { margin-top: 1.5rem; text-align: center; font-size: 0.9rem; }
-.toggle-footer a { color: #4784d8; text-decoration: none; font-weight: 600; }
-.toggle-footer a:hover { text-decoration: underline; }
-
-/* --- DARK MODE EXPLICIT INTERCEPT RULES --- */
-.login-container.dark-mode {
-  background-color: #121212;
-}
-.login-container.dark-mode .login-card {
-  background: #1e1e1e;
-  border-color: #333;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-.login-container.dark-mode h2 { color: #eee; }
-.login-container.dark-mode .subtitle { color: #aaa; }
-.login-container.dark-mode label { color: #bbb; }
-.login-container.dark-mode input {
-  background: #2a2a2a;
-  border-color: #444;
-  color: #fff;
-}
-.login-container.dark-mode input:focus { border-color: #4784d8; }
-.login-container.dark-mode .toggle-footer p { color: #aaa; }
+/* DARK MODE THEME INJECTIONS */
+.dark-mode-card { background: rgba(20, 20, 22, 0.95) !important; border-color: #444 !important; color: #e0e0e0; }
+.dark-mode-card h2 { color: #fff; }
+.dark-mode-card .subtitle { color: #aaa; }
+.dark-mode-card .form-group label { color: #bbb; }
+.dark-mode-card .form-group input { background: #1a1a1c; border-color: #444; color: #fff; }
+.dark-mode-card .form-group input:focus { border-color: #64b5f6; }
+.dark-mode-card .form-group.has-error input { background-color: rgba(198, 40, 40, 0.15); border-color: #ef5350 !important; }
+.dark-mode-card .error-text { color: #ff8a80; }
+.dark-mode-card .api-error-banner { background: rgba(198, 40, 40, 0.25); border-color: #ef5350; color: #ff8a80; }
+.dark-mode-card .api-success-banner { background: rgba(46, 125, 50, 0.25); border-color: #66bb6a; color: #a5d6a7; }
+.dark-mode-card .submit-btn { background: #444; color: #fff; }
+.dark-mode-card .submit-btn:disabled { background: #2a2a2c; color: #555; }
 </style>
