@@ -150,7 +150,7 @@ Responses:
 | 404 | Does not exist | User does not exist. | See example \#2 |
 | 403 | Forbidden | Incorrect password | See example \#2 |
 
-### Example 1: OK
+#### Example 1: OK
 
 Server responds with user data. Remember to save the token!
 
@@ -166,7 +166,7 @@ Server responds with user data. Remember to save the token!
 }
 ```
 
-### Example 2: Error
+#### Example 2: Error
 
 The message changes depending on the error.
 
@@ -175,5 +175,70 @@ The message changes depending on the error.
     "code": 403,
     "success": false,
     "message": "Forbidden (wrong password)"
+}
+```
+
+### Make Task
+
+POST `api/make_task`
+
+Token is required.
+
+Body input:
+
+```json
+{
+    "userid": 1,
+    "taskName": "string",
+    "taskContent": "string",
+    "taskDueDate": "YYYY-MM-DD",
+    "category": "string",
+    "isChecked": false
+}```
+
+taskDueDate must be able to convert into a date.
+
+All strings must only have alphanumeric values and/or "!@#$%^&*"
+
+| Status | Meaning | Description | Schema |
+| ------ | ------- | ----------- | ------ |
+| 201 | Complete | Task was made | See example \#1 |
+| 400 | Bad request | Missing input | See example \#2 |
+| 401 | Unauthorized | Missing token | See example \#2 |
+| 400 | Bad request | Bad input | See example \#2 |
+| 403 | Forbidden | Mismatched Token | See example \#2 |
+| 404 | Does not exist | User ID doesn't exist | See example \#2 |
+
+#### Example 1: Task was made
+
+The server will return details about the task.
+
+```json
+{
+    "code": 201,
+    "success": true,
+    "message": {
+        "taskid": 1,
+        "userid": 1,
+        "taskname": "Hello",
+        "taskcontent": "World!",
+        "taskduedate": "2026-10-10T04:00:00.000Z",
+        "category": "Homework",
+        "ischecked": false,
+        "updatedAt": "2026-06-19T18:05:00.836Z",
+        "createdAt": "2026-06-19T18:05:00.836Z"
+    }
+}
+```
+
+#### Example 2: Errors
+
+The message changes depending on the error.
+
+```json
+{
+    "code": 401,
+    "success": false,
+    "message": "Missing token"
 }
 ```
