@@ -103,7 +103,7 @@ Responses:
 {
     "code": 200,
     "success": true,
-    message: {
+    "message": {
         "id": 5980,
         "username": "JohnDoe"
     }
@@ -117,8 +117,8 @@ The message varies depending on the error.
 ```json
 {
     "code": 400,
-    success: false,
-    message: "User already exists"
+    "success": false,
+    "message": "User already exists"
 }
 ```
 
@@ -173,7 +173,7 @@ The message changes depending on the error.
 ```json
 {
     "code": 403,
-    success: false,
-    message: "Forbidden (wrong password)"
+    "success": false,
+    "message": "Forbidden (wrong password)"
 }
 ```
