@@ -24,8 +24,6 @@ const app = express();
 const httpPort = 3000;
 const httpsPort = 3001;
 
-
-
 // sync the database
 console.log("Syncing database");
 
@@ -49,11 +47,29 @@ catch (error) {
 
 const user = sequelize.define( "User",
     {
-        id: {type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true},
-        username: {type: DataTypes.STRING, allowNull: false, unique: true},
-        password: {type: DataTypes.STRING, allowNull: false}
+        userid: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+        username: { type: DataTypes.STRING, allowNull: false, unique: true },
+        password: { type: DataTypes.STRING, allowNull: false }
     }
 );
+
+const task = sequelize.define("Task", 
+    {
+        taskid: { type: DataTypes.INTEGER, allowNull: false, autoIncrement: true, primaryKey: true },
+        userid: { type: DataTypes.INTEGER, allowNull: false },
+        taskname: { type: DataTypes.STRING, allowNull: false },
+        taskcontent: { type: DataTypes.STRING, allowNull: false },
+        taskduedate: { type: DataTypes.DATE, allowNull: false },
+        category: { type: DataTypes.STRING, allowNull: false },
+        ischecked: { type: DataTypes.BOOLEAN, allowNull: false }
+    }
+);
+
+task.sync({ force: true });
+
+console.log("All models: ", sequelize.models);
+
+//sequelize.sync({ force: true });
 
 // Configuration for express
 app.use(express.json());
@@ -78,7 +94,6 @@ files.forEach(async (file) => {
 
 
 // Sets all responses to to json
-// Global Error Handler (Must have exactly 4 arguments)
 app.use((err, req, res, next) => {
     console.error(err);
     const statusCode = err.status || 500;

@@ -3,12 +3,13 @@ const express = require("express");
 const { Helpers } = require("../helpers.js");
 
 /**
- * @param {express.Application}
- * @param {Sequelize}
+ * @param {express.Application} app
+ * @param {Sequelize} sequelize
  */
 async function endpoint(app, sequelize) {
     app.get("/api/users", async (req, res) => {
         if(!req.body) return res.status(403).json({
+
             status: 403,
             success: false,
             message: "Forbidden"

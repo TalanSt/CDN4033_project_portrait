@@ -3,8 +3,8 @@ const fs = require("fs/promises");
 const { Sequelize } = require("sequelize");
 
 /**
- * @param {express.Application}
- * @param { Sequelize }
+ * @param {express.Application} app
+ * @param { Sequelize } sequelize
  */
 async function endpoint(app, sequelize) {
     console.log("Hello from example!");
