@@ -80,8 +80,8 @@ Body (JSON Object):
 
 ```json
 {
-    "username": string,
-    "password": string
+    "username": "string",
+    "password": "string"
 }
 ```
 
@@ -102,10 +102,10 @@ Responses:
 ```json
 {
     "code": 200,
-    "success": true
+    "success": true,
     message: {
-        "id": 5980
-        "username": JohnDoe
+        "id": 5980,
+        "username": "JohnDoe"
     }
 }
 ```
@@ -117,7 +117,7 @@ The message varies depending on the error.
 ```json
 {
     "code": 400,
-    success: false
+    success: false,
     message: "User already exists"
 }
 ```
@@ -132,8 +132,8 @@ Body (JSON object)
 
 ```json
 {
-    "username": string
-    "password": string
+    "username": "string",
+    "password": "string"
 }
 ```
 
@@ -157,7 +157,7 @@ Server responds with user data. Remember to save the token!
 ```json
 {
     "code": 200,
-    "success": true
+    "success": true,
     "message": {
         "username": "JohnDoe",
         "userid": 5980,
@@ -173,7 +173,7 @@ The message changes depending on the error.
 ```json
 {
     "code": 403,
-    success: false
+    success: false,
     message: "Forbidden (wrong password)"
 }
 ```
