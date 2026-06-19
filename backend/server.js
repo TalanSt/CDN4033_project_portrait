@@ -2,16 +2,8 @@ const fs = require("fs");
 const http = require("http");
 const https = require("https");
 const path = require("path");
-const { Sequelize, DataTypes } = require("sequelize");
-const helpers = require("./helpers.js");
 
-// test encrypt/decrypt
-const str = "Hello World!";
-console.log(str);
-const encrypt = helpers.encryptString(str);
-console.log(encrypt);
-const decrypt = helpers.decryptString(encrypt);
-console.log(decrypt);
+const { Sequelize, DataTypes } = require("sequelize");
 
 let useHTTPS = false;
 let privateKey;
@@ -31,6 +23,8 @@ const app = express();
 
 const httpPort = 3000;
 const httpsPort = 3001;
+
+
 
 // sync the database
 console.log("Syncing database");
@@ -61,9 +55,9 @@ const user = sequelize.define( "User",
     }
 );
 
-
-user.sync({ force: true });
-
+// Configuration for express
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // This reads all .js files in ./api/ and runs the internal "api" function in them to set up their endpoints.
 console.log("Reading files and importing endpoints.");
@@ -82,6 +76,17 @@ files.forEach(async (file) => {
 });
 
 
+
+// Sets all responses to to json
+// Global Error Handler (Must have exactly 4 arguments)
+app.use((err, req, res, next) => {
+    console.error(err);
+    const statusCode = err.status || 500;
+    res.status(statusCode).json({
+        status: statusCode,
+        error: err.message || 'Internal Server Error'
+    });
+});
 
 let httpServer = http.createServer(app);
 

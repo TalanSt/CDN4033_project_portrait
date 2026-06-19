@@ -18,8 +18,6 @@ async function endpoint(app, sequelize) {
     app.get("/api/example", (req, res) => {
         res.json(data);
     });
-
-
 }
 
 module.exports = { endpoint }
