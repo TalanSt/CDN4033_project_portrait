@@ -173,6 +173,24 @@ class Helpers {
         return taskarr[0];
     }
 
+    /**
+     * Checks if the tasks exists in the database. If they do, returns the tasks.
+     * Returns null otherwise. Checks by user id.
+     * @param {number} userid
+     * @param {Sequelize} sequelize
+     */
+    static async getTasksByUserId(userid, sequelize) {
+        const taskarr = await sequelize.models.Task.findAll({
+            where: {
+                userid: userid
+            }
+        });
+
+        if(taskarr.length === 0) return null;
+
+        return taskarr;
+    }
+
 }
 
 
