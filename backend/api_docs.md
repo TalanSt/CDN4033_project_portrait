@@ -243,3 +243,50 @@ The message changes depending on the error.
     "message": "Missing token"
 }
 ```
+
+### Get Task
+
+GET `api/get_task`
+
+Returns the specified task.
+
+Token is required.
+
+Body:
+
+```json
+{
+    "taskid": 3,
+    "userid": 1
+}
+```
+
+I'll write the table of responses some other time. I'll give examples though:
+
+Example Responses:
+
+```json
+{
+    "code": 200,
+    "success": true,
+    "message": {
+        "taskid": 1,
+        "userid": 1,
+        "taskname": "User 1 Task 1",
+        "taskcontent": "Example Task",
+        "taskduedate": "2026-10-10T04:00:00.000Z",
+        "category": "Homework",
+        "ischecked": false,
+        "createdAt": "2026-06-19T18:48:51.907Z",
+        "updatedAt": "2026-06-19T18:48:51.907Z"
+    }
+}
+```
+
+```json
+{
+    "code": 403,
+    "success": false,
+    "message": "Forbidden"
+}
+```
