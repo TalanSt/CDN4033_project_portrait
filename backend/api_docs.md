@@ -337,12 +337,63 @@ Example Responses:
             "updatedAt": "2026-06-19T18:49:11.719Z"
         }
     ]
-}```
+}
+```
 
 ```json
 {
     "code": 403,
     "success": false,
     "message": "Forbidden"
+}
+```
+
+### Edit Task
+
+PATCH `api/edit_task`
+
+Edits the specified task.
+
+```json
+{
+    "taskid": 1,
+    "userid": 1,
+    "taskName": "User 1 Task 1",
+    "taskContent": "This will change the content of the first task.",
+    "taskDueDate": "2026-10-10",
+    "category": "Homework",
+    "isChecked": false
+}
+```
+
+Only `taskid` and `userid` are required. If you do not provide a value, it will not change, i.e:
+
+```json
+{
+    "taskid": 1,
+    "userid": 1,
+    "taskContent": "This will change the content of the first task.",
+}
+```
+
+Will not change any other values in task id 1.
+
+The server responds with the updated task:
+
+```json
+{
+    "code": 200,
+    "success": true,
+    "message": {
+        "taskid": 1,
+        "userid": 1,
+        "taskname": "User 1 Task 1",
+        "taskcontent": "This will change the content of the first task.",
+        "taskduedate": "2026-10-10T04:00:00.000Z",
+        "category": "Homework",
+        "ischecked": false,
+        "createdAt": "2026-06-19T18:48:51.907Z",
+        "updatedAt": "2026-06-19T19:58:15.140Z"
+    }
 }
 ```
