@@ -437,3 +437,25 @@ And when you attempt to reach this task again using `api/get_task`:
     "message": "Task does not exist"
 }
 ```
+
+It also does not show with `api/get_tasks`:
+
+```json
+{
+    "code": 200,
+    "success": true,
+    "message": [
+        {
+            "taskid": 2,
+            "userid": 1,
+            "taskname": "User 1 Task 2",
+            "taskcontent": "Example Task",
+            "taskduedate": "2026-10-10T04:00:00.000Z",
+            "category": "Homework",
+            "ischecked": false,
+            "createdAt": "2026-06-19T18:49:11.719Z",
+            "updatedAt": "2026-06-19T18:49:11.719Z"
+        }
+    ]
+}
+```
