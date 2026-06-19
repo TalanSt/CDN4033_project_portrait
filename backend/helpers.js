@@ -154,6 +154,25 @@ class Helpers {
         if(trim === "false" || trim === "fals" || trim === "fal" || trim === "fa" || trim === "f") return false;
         return null;
     }
+
+    /**
+     * Checks if the task exists in the database. If they do, returns the task.
+     * Returns null otherwise. Checks by id.
+     * @param {number} taskid
+     * @param {Sequelize} sequelize
+     */
+    static async getTaskById(taskid, sequelize) {
+        const taskarr = await sequelize.models.Task.findAll({
+            where: {
+                taskid: taskid
+            }
+        });
+
+        if(taskarr.length === 0) return null;
+
+        return taskarr[0];
+    }
+
 }
 
 
@@ -165,6 +184,12 @@ class jsonResponses {
         code: 404,
         success: false,
         message: "User does not exist"
+    }
+
+    static taskDoesNotExist = {
+        code: 404,
+        success: false,
+        message: "Task does not exist"
     }
 
     static userAlreadyExists = {

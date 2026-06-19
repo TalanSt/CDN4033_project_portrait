@@ -65,7 +65,7 @@ const task = sequelize.define("Task",
     }
 );
 
-task.sync({ force: true });
+//task.sync({ force: true });
 
 console.log("All models: ", sequelize.models);
 
