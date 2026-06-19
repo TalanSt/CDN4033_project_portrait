@@ -372,7 +372,7 @@ Only `taskid` and `userid` are required. If you do not provide a value, it will 
 {
     "taskid": 1,
     "userid": 1,
-    "taskContent": "This will change the content of the first task.",
+    "taskContent": "This will change the content of the first task."
 }
 ```
 
@@ -395,5 +395,45 @@ The server responds with the updated task:
         "createdAt": "2026-06-19T18:48:51.907Z",
         "updatedAt": "2026-06-19T19:58:15.140Z"
     }
+}
+```
+
+### Delete Task
+
+DELETE `api/delete_task`
+
+Deletes the specified task. This is permanent and cannot be undone!
+(Deletes the row from the database!)
+
+Request body:
+
+```json
+{
+    "userid": 1,
+    "taskid": 1
+}
+```
+
+The server will respond with a success message:
+
+```json
+{
+    "code": 200,
+    "success": true,
+    "message": {
+        "taskid": 1,
+        "userid": 1,
+        "text": "Successfully deleted task 1: User 1 Task 1 for user 1: user1"
+    }
+}
+```
+
+And when you attempt to reach this task again using `api/get_task`:
+
+```json
+{
+    "code": 404,
+    "success": false,
+    "message": "Task does not exist"
 }
 ```
