@@ -290,3 +290,59 @@ Example Responses:
     "message": "Forbidden"
 }
 ```
+
+### Get Tasks
+
+GET `api/get_tasks`
+
+Returns all of the tasks associated with the user.
+
+Token is required.
+
+Body:
+
+```json
+{
+    "userid": 1
+}
+```
+
+Example Responses:
+
+```json
+{
+    "code": 200,
+    "success": true,
+    "message": [
+        {
+            "taskid": 1,
+            "userid": 1,
+            "taskname": "User 1 Task 1",
+            "taskcontent": "Example Task",
+            "taskduedate": "2026-10-10T04:00:00.000Z",
+            "category": "Homework",
+            "ischecked": false,
+            "createdAt": "2026-06-19T18:48:51.907Z",
+            "updatedAt": "2026-06-19T18:48:51.907Z"
+        },
+        {
+            "taskid": 2,
+            "userid": 1,
+            "taskname": "User 1 Task 2",
+            "taskcontent": "Example Task",
+            "taskduedate": "2026-10-10T04:00:00.000Z",
+            "category": "Homework",
+            "ischecked": false,
+            "createdAt": "2026-06-19T18:49:11.719Z",
+            "updatedAt": "2026-06-19T18:49:11.719Z"
+        }
+    ]
+}```
+
+```json
+{
+    "code": 403,
+    "success": false,
+    "message": "Forbidden"
+}
+```
