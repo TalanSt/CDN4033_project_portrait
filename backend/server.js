@@ -21,6 +21,16 @@ const express = require("express");
 const { exit } = require("process");
 const app = express();
 
+const cors = require("cors");
+
+app.use(cors({
+    origin: "https://localhost:5173", // URL of your Vue development server
+    credentials: true                 // Allows cookies/headers if you pass sessions later
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 const httpPort = 3000;
 const httpsPort = 3001;
 
@@ -119,3 +129,4 @@ else {
     httpServer.listen(httpPort); 
     console.log(`Listening for HTTP on ${httpPort}. https://localhost:${httpPort}`);
 }
+// sequelize.sync({ force: true });

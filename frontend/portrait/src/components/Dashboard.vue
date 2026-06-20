@@ -1,583 +1,480 @@
 <template>
-  <div :class="['dashboard-container', { 'dark-mode-dashboard': isDark }]">
-    <canvas ref="bgCanvas" class="procedural-bg"></canvas>
-
-    <div class="control-taskbar">
-      <div class="taskbar-content">
-
-        <div class="theme-module">
-          <span class="module-label">Atmosphere</span>
-          <div class="theme-buttons-stack">
-            <button
-              v-for="(theme, key) in themes"
-              :key="key"
-              :class="{ active: currentTheme === key }"
-              @click="changeTheme(key)"
-              class="theme-btn"
-            >
-              {{ theme.name }}
-            </button>
-          </div>
-        </div>
-
-        <hr class="taskbar-divider" />
-
-        <div class="category-builder-module">
-          <h3>Create Category</h3>
-          <div class="builder-card">
-            <div class="builder-field">
-              <label>Name</label>
-              <input type="text" v-model="newCat.name" placeholder="e.g., Graphics Engine" />
-            </div>
-
-            <div class="builder-row-twin">
-              <div class="builder-field">
-                <label>Icon</label>
-                <select v-model="newCat.emoji" class="emoji-dropdown clean-emoji-select">
-                  <option value="📐">📐</option>
-                  <option value="�">�</option>
-                  <option value="�">�</option>
-                  <option value="🧪">🧪</option>
-                  <option value="📡">📡</option>
-                  <option value="⚡">⚡</option>
-                  <option value="�">�</option>
-                  <option value="💼">💼</option>
-                  <option value="🎓">🎓</option>
-                  <option value="🏠">🏠</option>
-                  <option value="🎨">🎨</option>
-                  <option value="🛠️">🛠️</option>
-                  <option value="💾">💾</option>
-                  <option value="🔥">🔥</option>
-                  <option value="👁️">👁️</option>
-                </select>
-              </div>
-              <div class="builder-field">
-                <label>Color</label>
-                <div class="color-picker-wrapper">
-                  <input type="color" v-model="newCat.color" />
-                </div>
-              </div>
-            </div>
-
-            <button @click="createCategory" class="build-cat-btn">+ Register</button>
-          </div>
-        </div>
-
+  <div class="dashboard-viewport-inner" :style="atmosphereStyles">
+    <div class="settings-drawer" :class="{ 'drawer-open': isSettingsOpen }">
+      <div class="drawer-trigger" @click="isSettingsOpen = !isSettingsOpen">
+        <span class="gear-icon">⚙️</span>
+        <span class="trigger-text">SETTINGS</span>
       </div>
 
-      <div class="taskbar-handle">
-        <span class="handle-icon">⚙️</span>
-        <span class="handle-text">CONTROLS</span>
+      <div class="drawer-content">
+        <div class="settings-section">
+          <label class="section-label">Identity Profile</label>
+          <div class="operator-profile-card">
+            <div class="profile-avatar">👤</div>
+            <div class="profile-details">
+              <span class="profile-label">Active Operator</span>
+              <span class="profile-name">{{ currentOperator }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider-line"></div>
+
+        <div class="settings-section">
+          <label class="section-label">Atmosphere</label>
+          <div
+            v-for="(config, key) in ATMOSPHERE_MATRIX"
+            :key="key"
+            class="theme-button"
+            :class="{ 'active-theme': currentAtmosphere === key }"
+            @click="currentAtmosphere = key"
+          >
+            <span class="theme-indicator">{{ config.icon }}</span> {{ config.name }}
+          </div>
+        </div>
+
+        <div class="divider-line"></div>
+
+        <div class="settings-section logout-wrapper">
+          <button class="logout-btn" @click="handleLogout">Terminate Session</button>
+        </div>
       </div>
     </div>
 
-    <div class="main-content">
-      <h1 class="logo">P👁rtra👁t</h1>
+    <div class="workspace-viewport" @click="closeAllContextMenus">
+      <header class="app-branding-title">
+        P<span>👁️</span>rtr<span>👁️</span>t
+      </header>
 
-      <div class="horizontal-progress-container">
-        <div class="progress-label-row">
-          <span class="analytics-title">Task Completion</span>
-          <span class="analytics-percentage">{{ completionPercentage }}%</span>
+      <section class="progress-module">
+        <div class="progress-meta">
+          <span class="label">Task Completion</span>
+          <span class="percentage">{{ progressPercentage }}%</span>
         </div>
-        <div class="progress-track-horizontal">
-          <div class="progress-fill-horizontal" :style="{ width: completionPercentage + '%' }"></div>
+        <div class="horizontal-track">
+          <div class="horizontal-fill" :style="{ width: progressPercentage + '%' }"></div>
         </div>
-      </div>
+      </section>
 
-      <div class="task-stream">
+      <section class="tasks-container-stream">
+        <div v-if="apiError" class="api-error-banner">❌ {{ apiError }}</div>
+        <div v-if="tasks.length === 0" class="empty-state-placeholder">
+          No system execution nodes found. Input a title node below to seed context rows.
+        </div>
+
         <div
-          v-for="(task, index) in tasks"
-          :key="task.id"
-          class="task-card"
-          :style="{ borderLeftColor: getCategoryColor(task.category) }"
-          :class="{
-            'completed-task': task.completed,
-            'overdue-task': !task.completed && isPastDue(task.dueDate),
-            'pending-task': !task.completed && !isPastDue(task.dueDate)
-          }"
+          v-for="task in tasks"
+          :key="task.taskid"
+          class="task-item-card"
+          :class="{ 'item-checked': task.ischecked, 'item-overdue': isOverdue(task) && !task.ischecked }"
         >
-          <template v-if="editingIndex !== index">
-            <div class="task-info">
-              <div class="title-row">
-                <span class="priority-flag" :title="task.priority + ' Priority'">
-                  {{ getPriorityFlag(task.priority) }}
+          <div class="category-accent-bar" :style="{ backgroundColor: getTaskStatusColor(task) }"></div>
+
+          <div class="card-body-content">
+            <div class="row-top">
+              <div class="left-meta-info">
+                <span class="status-symbol-indicator">
+                  {{ task.ischecked ? '✔️' : '❌' }}
                 </span>
-                <h4>{{ task.title }}</h4>
-                <span class="category-tag" :style="{ backgroundColor: getCategoryColor(task.category) }">
-                  {{ getCategoryEmoji(task.category) }} {{ task.category }}
+
+                <input
+                  v-if="editingTaskId === task.taskid"
+                  v-model="editForm.taskname"
+                  class="inline-edit-input title-edit"
+                />
+                <h4 v-else class="task-title-text">{{ task.taskname }}</h4>
+
+                <span class="category-pill-tag" :style="{ backgroundColor: getCategoryPillBg(task.category) }">
+                  {{ getCategoryIcon(task.category) }} {{ task.category.toUpperCase() }}
                 </span>
               </div>
-              <p class="description-text">{{ task.description || 'No description provided.' }}</p>
-            </div>
 
-            <div class="task-meta">
-              <span
-                v-if="task.dueDate"
-                class="due-date-badge"
-                :class="isPastDue(task.dueDate) && !task.completed ? 'past-due' : 'pending-due'"
-              >
-                📅 {{ formatDate(task.dueDate) }}
-              </span>
+              <div class="right-action-controls">
+                <input
+                  v-if="editingTaskId === task.taskid"
+                  v-model="editForm.taskduedate"
+                  type="date"
+                  class="inline-edit-input date-edit"
+                />
+                <span v-else class="due-date-badge" :class="{ 'date-overdue': isOverdue(task) && !task.ischecked }">
+                  📅 {{ formatDate(task.taskduedate) }}
+                </span>
 
-              <button @click="toggleComplete(index)" class="action-btn" :title="task.completed ? 'Mark incomplete' : 'Mark complete'">
-                <span class="status-emoji-badge">{{ task.completed ? '✅' : '❌' }}</span>
-              </button>
+                <button class="state-toggle-action" @click.stop="toggleTaskStatus(task)" title="Toggle status">
+                  {{ task.ischecked ? '↩️' : '✅' }}
+                </button>
 
-              <div class="menu-container">
-                <button @click="toggleMenu(index)" class="three-dots-btn">⋮</button>
-                <div v-if="activeMenuIndex === index" class="dropdown-menu">
-                  <button @click="startEdit(index)">✏️ Edit Task</button>
-                  <button @click="deleteTask(index)" class="delete-opt">🗑️ Delete</button>
+                <div class="context-menu-container">
+                  <button class="option-context-dots" @click.stop="toggleContextMenu(task.taskid)">⋮</button>
+
+                  <div v-if="activeContextMenuId === task.taskid" class="dropdown-actions-menu">
+                    <button v-if="editingTaskId !== task.taskid" @click.stop="startInlineEdit(task)">✏️ Edit</button>
+                    <button v-else @click.stop="saveInlineEdit(task)">💾 Save</button>
+                    <button @click.stop="deleteTaskNode(task.taskid)" class="delete-action-item">🗑️ Delete</button>
+                  </div>
                 </div>
               </div>
             </div>
-          </template>
 
-          <template v-else>
-            <div class="edit-form-inline">
-              <input type="text" v-model="editFields.title" placeholder="Task Title" class="inline-input" />
-              <textarea v-model="editFields.description" placeholder="Description" class="inline-textarea"></textarea>
-
-              <div class="inline-row">
-                <input type="date" v-model="editFields.dueDate" class="inline-input-sub" />
-
-                <select v-model="editFields.category" class="inline-select">
-                  <option v-for="(info, name) in categoryRegistry" :key="name" :value="name">
-                    {{ info.emoji }} {{ name }}
-                  </option>
-                </select>
-
-                <select v-model="editFields.priority" class="inline-select">
-                  <option value="Low">Low Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="High">High Priority</option>
-                </select>
-              </div>
-
-              <div class="inline-actions">
-                <button @click="saveEdit(index)" class="save-btn">Save</button>
-                <button @click="cancelEdit" class="cancel-btn">Cancel</button>
-              </div>
-            </div>
-          </template>
+            <textarea
+              v-if="editingTaskId === task.taskid"
+              v-model="editForm.taskcontent"
+              class="inline-edit-input desc-edit"
+            ></textarea>
+            <p v-else class="task-description-prose">{{ task.taskcontent }}</p>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="construction-panel">
-        <div class="input-main-row">
-          <input type="text" v-model="form.title" placeholder="Insert task title..." />
-          <button @click="addTask" class="send-btn">→</button>
-        </div>
-
-        <div class="input-details-row">
-          <input type="text" v-model="form.description" placeholder="Add description..." class="desc-input" />
-
-          <div class="meta-inputs">
-            <input type="date" v-model="form.dueDate" title="Set Due Date" />
-
-            <select v-model="form.category" title="Select Category">
-              <option v-for="(info, name) in categoryRegistry" :key="name" :value="name">
-                {{ info.emoji }} {{ name }}
-              </option>
+      <footer class="creation-dock-footer">
+        <form @submit.prevent="createNewTaskSubmit" class="dock-form">
+          <div class="dock-primary-row">
+            <input v-model="newTaskForm.title" type="text" placeholder="Insert task title..." required class="dock-title-input" />
+            <button type="submit" class="dock-submit-arrow">➔</button>
+          </div>
+          <div class="dock-secondary-row">
+            <input v-model="newTaskForm.content" type="text" placeholder="Add description..." required class="dock-desc-input" />
+            <input v-model="newTaskForm.dueDate" type="date" required class="dock-date-input" />
+            <select v-model="newTaskForm.category" class="dock-select-input">
+              <option value="School">🎓 School</option>
+              <option value="Work">💼 Work</option>
+              <option value="Personal">🏠 Personal</option>
             </select>
-
-            <select v-model="form.priority" title="Select Priority">
-              <option value="Low">🔵 Low</option>
-              <option value="Medium">🟡 Medium</option>
+            <select v-model="newTaskForm.priority" class="dock-select-input">
+              <option value="Low">🟡 Low</option>
+              <option value="Medium">🟠 Medium</option>
               <option value="High">🔴 High</option>
             </select>
           </div>
-        </div>
-      </div>
+        </form>
+      </footer>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 
 const props = defineProps({
-  isDark: Boolean
+  isLightVariant: Boolean
 })
 
-const categoryRegistry = reactive({
-  General: { color: '#9e9e9e', emoji: '📦' },
-  Work: { color: '#4784d8', emoji: '💼' },
-  Personal: { color: '#ab47bc', emoji: '🏠' },
-  School: { color: '#ff9800', emoji: '🎓' }
-})
+const BACKEND_URL = 'https://localhost:3001/api'
 
-const newCat = reactive({ name: '', emoji: '📐', color: '#4784d8' })
+const tasks = ref([])
+const apiError = ref('')
+const isSettingsOpen = ref(false)
+const currentAtmosphere = ref('surrealistVoid')
+const currentOperator = ref(localStorage.getItem('portrait_username') || 'Root')
 
-const createCategory = () => {
-  const cleanedName = newCat.name.trim()
-  if (!cleanedName) return
-  categoryRegistry[cleanedName] = { color: newCat.color, emoji: newCat.emoji }
-  form.category = cleanedName
-  newCat.name = ''; newCat.emoji = '📐'
-}
+// Action item states
+const activeContextMenuId = ref(null)
+const editingTaskId = ref(null)
+const editForm = ref({ taskname: '', taskcontent: '', taskduedate: '' })
 
-const currentTheme = ref('void')
-const themes = {
-  void: {
-    name: '🌌 Surrealist Void',
-    clearLight: '#f4f6f9', clearDark: '#121214',
-    color1: 'rgba(171, 71, 188, 0.08)', color2: 'rgba(71, 132, 216, 0.07)'
+const ATMOSPHERE_MATRIX = {
+  surrealistVoid: {
+    name: 'Surrealist Void', icon: '🌌',
+    dark:  { bg: '#161216', surface: '#1a151a', drawer: '#0c0a0c', text: '#e2e8f0', line: '#2b222b', fill: 'linear-gradient(90deg, #4ade80, #22c55e)' },
+    light: { bg: '#f5f3f5', surface: '#ffffff', drawer: '#e8e4e8', text: '#1f1a1f', line: '#dcd6dc', fill: 'linear-gradient(90deg, #16a34a, #15803d)' }
   },
-  mint: {
-    name: '🌿 Monochrome Mint',
-    clearLight: '#f0f4f1', clearDark: '#111613',
-    color1: 'rgba(153, 226, 137, 0.12)', color2: 'rgba(144, 164, 174, 0.08)'
+  monochromeMint: {
+    name: 'Monochrome Mint', icon: '🌿',
+    dark:  { bg: '#121614', surface: '#151a17', drawer: '#0a0c0b', text: '#e2f0e8', line: '#222b26', fill: 'linear-gradient(90deg, #2dd4bf, #0f766e)' },
+    light: { bg: '#f2f6f4', surface: '#ffffff', drawer: '#e2eae6', text: '#111613', line: '#d2ded8', fill: 'linear-gradient(90deg, #0d9488, #115e59)' }
   },
-  dusk: {
-    name: '🌅 Liminal Dusk',
-    clearLight: '#faf5f2', clearDark: '#181311',
-    color1: 'rgba(211, 47, 47, 0.06)', color2: 'rgba(255, 152, 0, 0.06)'
+  liminalDusk: {
+    name: 'Liminal Dusk', icon: '🌅',
+    dark:  { bg: '#1c1512', surface: '#241b17', drawer: '#120d0b', text: '#f0e6e2', line: '#332620', fill: 'linear-gradient(90deg, #f97316, #ea580c)' },
+    light: { bg: '#faf5f2', surface: '#ffffff', drawer: '#efe4de', text: '#211612', line: '#e6d5cc', fill: 'linear-gradient(90deg, #ea580c, #c2410c)' }
   },
-  cyber: {
-    name: '🧪 Cyber Punk',
-    clearLight: '#f5f4f7', clearDark: '#0f0e14',
-    color1: 'rgba(0, 229, 255, 0.08)', color2: 'rgba(101, 31, 255, 0.07)'
+  cyberPunk: {
+    name: 'Cyber Punk', icon: '⚡',
+    dark:  { bg: '#0f0514', surface: '#16091f', drawer: '#07010a', text: '#f5e6ff', line: '#311442', fill: 'linear-gradient(90deg, #f43f5e, #d946ef)' },
+    light: { bg: '#fdf6ff', surface: '#ffffff', drawer: '#f4e3fc', text: '#210230', line: '#edd0fa', fill: 'linear-gradient(90deg, #e11d48, #c026d3)' }
   }
 }
 
-const themeColors = reactive({
-  clearColor: props.isDark ? themes.void.clearDark : themes.void.clearLight,
-  color1: themes.void.color1,
-  color2: themes.void.color2
-})
-
-const changeTheme = (key) => {
-  currentTheme.value = key
-  const target = themes[key]
-  themeColors.clearColor = props.isDark ? target.clearDark : target.clearLight
-  themeColors.color1 = target.color1
-  themeColors.color2 = target.color2
-}
-
-watch(() => props.isDark, (newValue) => {
-  const activeTheme = themes[currentTheme.value]
-  themeColors.clearColor = newValue ? activeTheme.clearDark : activeTheme.clearLight
-})
-
-const bgCanvas = ref(null)
-let animationId = null
-
-const initShaderBackground = () => {
-  const canvas = bgCanvas.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  let width = (canvas.width = window.innerWidth)
-  let height = (canvas.height = window.innerHeight)
-
-  const handleResize = () => {
-    if (!canvas) return
-    width = canvas.width = window.innerWidth
-    height = canvas.height = window.innerHeight
+const atmosphereStyles = computed(() => {
+  const flavor = ATMOSPHERE_MATRIX[currentAtmosphere.value]
+  const tokenSet = props.isLightVariant ? flavor.light : flavor.dark
+  return {
+    '--bg-app': tokenSet.bg,
+    '--bg-surface': tokenSet.surface,
+    '--bg-drawer': tokenSet.drawer,
+    '--text-main': tokenSet.text,
+    '--border-line': tokenSet.line,
+    '--progress-fill': tokenSet.fill
   }
-  window.addEventListener('resize', handleResize)
-  let tick = 0
+})
 
-  const renderLoop = () => {
-    tick += 0.003
-    ctx.fillStyle = themeColors.clearColor
-    ctx.fillRect(0, 0, width, height)
+const newTaskForm = ref({ title: '', content: '', dueDate: '', category: 'School', priority: 'Medium' })
+const completedTasksCount = computed(() => tasks.value.filter(t => t.ischecked === true || t.ischecked === 1 || t.ischecked === 'true').length)
+const progressPercentage = computed(() => tasks.value.length === 0 ? 0 : Math.round((completedTasksCount.value / tasks.value.length) * 100))
 
-    const x1 = width * (0.5 + 0.25 * Math.sin(tick * 1.5))
-    const y1 = height * (0.5 + 0.2 * Math.cos(tick * 0.8))
-    const radius1 = Math.max(width, height) * 0.6
-    const grad1 = ctx.createRadialGradient(x1, y1, 10, x1, y1, radius1)
-    grad1.addColorStop(0, themeColors.color1)
-    grad1.addColorStop(1, 'rgba(0, 0, 0, 0)')
-    ctx.fillStyle = grad1
-    ctx.fillRect(0, 0, width, height)
+// Utility date check
+const isOverdue = (task) => {
+  if (!task.taskduedate) return false
+  const targetDate = new Date(task.taskduedate)
+  targetDate.setHours(23, 59, 59, 999)
+  return new Date() > targetDate
+}
 
-    const x2 = width * (0.3 + 0.2 * Math.cos(tick * 1.1))
-    const y2 = height * (0.4 + 0.25 * Math.sin(tick * 1.3))
-    const radius2 = Math.max(width, height) * 0.5
-    const grad2 = ctx.createRadialGradient(x2, y2, 10, x2, y2, radius2)
-    grad2.addColorStop(0, themeColors.color2)
-    grad2.addColorStop(1, 'rgba(0, 0, 0, 0)')
-    ctx.fillStyle = grad2
-    ctx.fillRect(0, 0, width, height)
+// Colors accent bar: Completed -> Green, Overdue -> Red, Normal -> Category Color
+const getTaskStatusColor = (task) => {
+  if (task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true') return '#22c55e'
+  if (isOverdue(task)) return '#ef4444'
+  return task.category?.toLowerCase() === 'school' ? '#f59e0b' : task.category?.toLowerCase() === 'work' ? '#3b82f6' : '#a855f7'
+}
 
-    animationId = requestAnimationFrame(renderLoop)
+const loadWorkspaceTasks = async () => {
+  const token = localStorage.getItem('portrait_token')
+  const userid = localStorage.getItem('portrait_userid')
+  if (!token || !userid) return
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/get_tasks`, {
+      method: 'POST',
+      headers: { 'token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userid: Number(userid) })
+    })
+    const data = await response.json()
+    if (data.success) {
+      // Ensure local mappings cleanly evaluate truthiness configurations returned from SQLite backend
+      tasks.value = data.message.map(t => ({
+        ...t,
+        ischecked: (t.ischecked === true || t.ischecked === 1 || t.ischecked === 'true')
+      }));
+      apiError.value = ''
+    }
+  } catch (err) { apiError.value = "Network integration anomaly encountered." }
+}
+
+const createNewTaskSubmit = async () => {
+  const token = localStorage.getItem('portrait_token')
+  const userid = localStorage.getItem('portrait_userid')
+  try {
+    const response = await fetch(`${BACKEND_URL}/make_task`, {
+      method: 'POST',
+      headers: { 'token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userid: Number(userid), taskName: newTaskForm.value.title,
+        taskContent: newTaskForm.value.content, taskDueDate: newTaskForm.value.dueDate,
+        category: newTaskForm.value.category, isChecked: false
+      })
+    })
+    const data = await response.json()
+    if (data.success) {
+      newTaskForm.value.title = ''; newTaskForm.value.content = ''; newTaskForm.value.dueDate = ''
+      await loadWorkspaceTasks()
+    }
+  } catch (err) { console.error(err) }
+}
+
+// Fixed Status Toggle logic
+const toggleTaskStatus = async (task) => {
+  // Invert current status cleanly regardless of base typing state
+  const nextCheckedState = !(task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true');
+
+  // Optimistically set status variant locally for snappier interface feedback
+  task.ischecked = nextCheckedState;
+
+  // Package clean structured payload explicitly targeting your backend configurations
+  const payload = {
+    taskid: task.taskid,
+    userid: Number(task.userid),
+    taskname: task.taskname,
+    taskcontent: task.taskcontent,
+    taskduedate: task.taskduedate,
+    category: task.category,
+    ischecked: nextCheckedState
+  };
+
+  await syncTaskUpdateBackend(payload);
+}
+
+// Context Actions Management Engine
+const toggleContextMenu = (id) => {
+  activeContextMenuId.value = activeContextMenuId.value === id ? null : id
+}
+const closeAllContextMenus = () => {
+  activeContextMenuId.value = null
+}
+
+const startInlineEdit = (task) => {
+  editingTaskId.value = task.taskid
+  editForm.value = {
+    taskname: task.taskname,
+    taskcontent: task.taskcontent,
+    taskduedate: task.taskduedate ? task.taskduedate.substring(0, 10) : ''
   }
-  renderLoop()
-  return () => { window.removeEventListener('resize', handleResize) }
+  activeContextMenuId.value = null
 }
 
-let cleanupResizeListener = null
-onMounted(() => { cleanupResizeListener = initShaderBackground() })
-onBeforeUnmount(() => {
-  if (animationId) cancelAnimationFrame(animationId)
-  if (cleanupResizeListener) cleanupResizeListener()
+const saveInlineEdit = async (task) => {
+  const updatedTask = {
+    taskid: task.taskid,
+    userid: Number(task.userid),
+    taskname: editForm.value.taskname,
+    taskcontent: editForm.value.taskcontent,
+    taskduedate: editForm.value.taskduedate,
+    category: task.category,
+    ischecked: (task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true')
+  }
+
+  editingTaskId.value = null
+  await syncTaskUpdateBackend(updatedTask);
+}
+
+const syncTaskUpdateBackend = async (taskPayload) => {
+  const token = localStorage.getItem('portrait_token')
+  try {
+    const response = await fetch(`${BACKEND_URL}/update_task`, {
+      method: 'POST',
+      headers: { 'token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(taskPayload)
+    })
+    const data = await response.json()
+    if (!data.success) {
+      apiError.value = "Failed to synchronize status with storage cluster node.";
+    }
+    await loadWorkspaceTasks()
+  } catch (err) {
+    console.error(err)
+    apiError.value = "Anomalous connection timeout encountered when saving runtime task."
+  }
+}
+
+const deleteTaskNode = async (taskId) => {
+  const token = localStorage.getItem('portrait_token')
+  tasks.value = tasks.value.filter(t => t.taskid !== taskId)
+  activeContextMenuId.value = null
+
+  try {
+    await fetch(`${BACKEND_URL}/delete_task`, {
+      method: 'POST',
+      headers: { 'token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskid: taskId })
+    })
+    await loadWorkspaceTasks()
+  } catch (err) { console.error(err) }
+}
+
+const getCategoryPillBg = (cat) => cat?.toLowerCase() === 'school' ? 'rgba(245, 158, 11, 0.2)' : cat?.toLowerCase() === 'work' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(168, 85, 247, 0.2)'
+const getCategoryIcon = (cat) => cat?.toLowerCase() === 'school' ? '🎓' : cat?.toLowerCase() === 'work' ? '💼' : '🏠'
+const formatDate = (ds) => { if (!ds) return 'Pending'; const d = new Date(ds); return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCFullYear()).substring(2)}` }
+const handleLogout = () => { localStorage.clear(); window.location.reload() }
+
+onMounted(() => {
+  loadWorkspaceTasks()
 })
-
-const tasks = ref([
-  { id: 1, title: 'Compile Graphics Shaders', description: 'Complete system compilation layout pipelines', dueDate: '2026-04-12', category: 'School', priority: 'High', completed: true },
-  { id: 2, title: 'Architecture Review', description: 'Review rendering architecture profiles', dueDate: '2026-06-10', category: 'Work', priority: 'Medium', completed: false },
-  { id: 3, title: 'Fix Buffer Intervals', description: 'Fix window buffer swap intervals', dueDate: '2026-07-20', category: 'Personal', priority: 'Low', completed: false },
-])
-
-const form = reactive({ title: '', description: '', dueDate: '', category: 'General', priority: 'Medium' })
-const activeMenuIndex = ref(null)
-const editingIndex = ref(null)
-const editFields = reactive({ title: '', description: '', dueDate: '', category: '', priority: '' })
-
-const completionPercentage = computed(() => {
-  if (tasks.value.length === 0) return 0
-  const completedCount = tasks.value.filter(t => t.completed).length
-  return Math.round((completedCount / tasks.value.length) * 100)
-})
-
-const isPastDue = (dateString) => {
-  if (!dateString) return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return new Date(dateString) < today
-}
-
-const formatDate = (dateString) => {
-  if (!dateString) return ''
-  const parts = dateString.split('-')
-  if (parts.length === 3) return `${parts[1]}/${parts[2]}/${parts[0].slice(-2)}`
-  return dateString
-}
-
-const getCategoryColor = (category) => categoryRegistry[category]?.color || '#9e9e9e'
-const getCategoryEmoji = (category) => categoryRegistry[category]?.emoji || '📦'
-const getPriorityFlag = (priority) => priority === 'High' ? '🔴' : priority === 'Medium' ? '🟡' : '🔵'
-
-const addTask = () => {
-  if (!form.title.trim()) return
-  tasks.value.push({
-    id: Date.now(), title: form.title, description: form.description,
-    dueDate: form.dueDate, category: form.category, priority: form.priority, completed: false
-  })
-  form.title = ''; form.description = ''; form.dueDate = ''
-}
-
-const toggleComplete = (index) => { tasks.value[index].completed = !tasks.value[index].completed }
-const toggleMenu = (index) => { activeMenuIndex.value = activeMenuIndex.value === index ? null : index }
-const deleteTask = (index) => { tasks.value.splice(index, 1); activeMenuIndex.value = null }
-
-const startEdit = (index) => {
-  editingIndex.value = index; activeMenuIndex.value = null; const target = tasks.value[index]
-  editFields.title = target.title; editFields.description = target.description
-  editFields.dueDate = target.dueDate; editFields.category = target.category; editFields.priority = target.priority
-}
-
-const saveEdit = (index) => {
-  if (!editFields.title.trim()) return
-  tasks.value[index] = { ...tasks.value[index], ...editFields }
-  editingIndex.value = null
-}
-const cancelEdit = () => { editingIndex.value = null }
 </script>
 
 <style scoped>
-.dashboard-container {
-  display: flex; width: 100vw; height: 100vh; position: relative; overflow: hidden;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; transition: color 0.3s ease;
+.dashboard-viewport-inner {
+  display: flex; width: 100vw; min-height: 100vh;
+  background-color: var(--bg-app); color: var(--text-main);
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-.procedural-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-
-/* ==========================================================================
-   SLIDING CONTROL TASKBAR
-   ========================================================================== */
-.control-taskbar {
-  position: fixed; top: 0; left: 0; bottom: 0; width: 280px;
-  background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px);
-  border-right: 2px solid #333; z-index: 100;
-  display: flex;
-  transform: translateX(-280px);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+.settings-drawer {
+  position: fixed; left: -260px; top: 50%; transform: translateY(-50%); width: 260px;
+  background: var(--bg-drawer); border: 1px solid var(--border-line); border-left: none;
+  border-radius: 0 12px 12px 0; z-index: 100; display: flex;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s, border-color 0.4s;
 }
-.control-taskbar:hover {
-  transform: translateX(0);
-  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.15);
+.drawer-open { left: 0; }
+.drawer-trigger {
+  position: absolute; right: -37px; top: 50%; transform: translateY(-50%) rotate(90deg);
+  transform-origin: center right; background: var(--bg-drawer); border: 1px solid var(--border-line);
+  border-bottom: none; padding: 0.35rem 0.85rem; border-radius: 6px 6px 0 0; cursor: pointer; display: flex; align-items: center; gap: 0.4rem;
 }
-.taskbar-content {
-  flex: 1; padding: 2rem 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; overflow-y: auto;
+.trigger-text { font-size: 0.65rem; font-weight: 900; letter-spacing: 2px; color: var(--text-main); }
+.gear-icon { transform: rotate(-90deg); font-size: 0.75rem; color: var(--text-main); }
+.drawer-content { padding: 1.25rem; width: 100%; display: flex; flex-direction: column; gap: 1.25rem; }
+.section-label { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #8a828a; margin-bottom: 0.75rem; letter-spacing: 1px; }
+.operator-profile-card { display: flex; align-items: center; gap: 0.75rem; background: var(--bg-surface); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-line); }
+.profile-avatar { font-size: 1.5rem; }
+.profile-details { display: flex; flex-direction: column; }
+.profile-label { font-size: 0.65rem; color: #857b85; text-transform: uppercase; font-weight: bold; }
+.profile-name { font-weight: 700; color: #4ade80; }
+
+.theme-button { padding: 0.65rem 0.85rem; background: transparent; border-radius: 6px; font-size: 0.85rem; font-weight: 600; color: var(--text-main); cursor: pointer; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s; border: 1px solid transparent; }
+.theme-button:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--border-line); }
+.active-theme { background: var(--text-main) !important; color: var(--bg-app) !important; font-weight: 800; }
+.divider-line { border-top: 1px dashed var(--border-line); width: 100%; }
+.logout-btn { width: 100%; padding: 0.55rem; background: #ef4444; border: none; color: #fff; border-radius: 6px; font-weight: 700; cursor: pointer; }
+
+.workspace-viewport { flex-grow: 1; padding: 4rem 4rem 10rem 4rem; display: flex; flex-direction: column; align-items: center; max-width: 900px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.app-branding-title { font-size: 2.75rem; font-weight: 900; letter-spacing: 4px; color: var(--text-main); margin-bottom: 2rem; text-align: center; }
+.app-branding-title span { font-size: 2.5rem; display: inline-block; margin: 0 -2px; }
+
+.progress-module { width: 100%; max-width: 720px; margin-bottom: 2rem; }
+.progress-meta { display: flex; justify-content: space-between; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; color: #8c858c; margin-bottom: 0.4rem; letter-spacing: 1px; }
+.horizontal-track { width: 100%; height: 10px; background-color: var(--bg-drawer); border-radius: 20px; overflow: hidden; border: 1px solid var(--border-line); }
+.horizontal-fill { height: 100%; background: var(--progress-fill); border-radius: 20px; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* TASKS CONTAINERS SETUP */
+.tasks-container-stream { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 1rem; }
+.task-item-card { background-color: var(--bg-surface); border: 1px solid var(--border-line); border-radius: 8px; display: flex; overflow: hidden; position: relative; transition: all 0.2s; }
+.category-accent-bar { width: 5px; flex-shrink: 0; transition: background-color 0.3s ease; }
+.card-body-content { padding: 1.25rem; flex-grow: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.row-top { display: flex; justify-content: space-between; align-items: center; }
+.left-meta-info { display: flex; align-items: center; gap: 0.75rem; flex-grow: 1; }
+
+/* Status Check/X markers */
+.status-symbol-indicator { font-size: 0.95rem; font-weight: bold; width: 20px; text-align: center; }
+
+.task-title-text { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; }
+.category-pill-tag { font-size: 0.6rem; font-weight: 800; padding: 0.2rem 0.5rem; border-radius: 4px; color: #fff; letter-spacing: 0.5px; }
+.right-action-controls { display: flex; align-items: center; gap: 0.75rem; position: relative; }
+
+/* Overdue States */
+.item-overdue { border-color: rgba(239, 68, 68, 0.4); }
+.date-overdue { color: #ef4444 !important; font-weight: 800 !important; background: rgba(239, 68, 68, 0.08) !important; border-color: rgba(239, 68, 68, 0.2) !important; }
+.due-date-badge { font-size: 0.7rem; font-weight: 700; background: var(--bg-drawer); padding: 0.3rem 0.6rem; border-radius: 4px; border: 1px solid var(--border-line); color: var(--text-main); opacity: 0.9; }
+
+.state-toggle-action { background: transparent; border: none; cursor: pointer; font-size: 1.05rem; transition: transform 0.2s; padding: 0 4px; }
+.state-toggle-action:hover { transform: scale(1.15); }
+.option-context-dots { background: transparent; border: none; color: #8c858c; cursor: pointer; font-size: 1.2rem; padding: 0 6px; font-weight: 900; }
+.option-context-dots:hover { color: var(--text-main); }
+
+/* Task Dropdown Menu Box */
+.context-menu-container { position: relative; display: inline-block; }
+.dropdown-actions-menu {
+  position: absolute; right: 0; top: 100%; background: var(--bg-drawer);
+  border: 1px solid var(--border-line); border-radius: 6px; min-width: 100px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3); z-index: 80; display: flex; flex-direction: column; padding: 4px 0;
 }
-.taskbar-handle {
-  position: absolute; top: 50%; left: 100%; transform: translateY(-50%);
-  background: #333; color: #fff; padding: 1rem 0.5rem;
-  border-radius: 0 8px 8px 0; border: 2px solid #333; border-left: none;
-  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+.dropdown-actions-menu button {
+  background: transparent; border: none; text-align: left; padding: 8px 14px;
+  font-size: 0.8rem; font-weight: 600; color: var(--text-main); cursor: pointer; width: 100%; white-space: nowrap;
 }
-.handle-icon { font-size: 1.1rem; }
-.handle-text { font-size: 0.65rem; font-weight: 900; letter-spacing: 2px; writing-mode: vertical-lr; text-transform: uppercase; }
-.taskbar-divider { border: none; border-top: 1px dashed rgba(51,51,51,0.2); width: 100%; margin: 0.25rem 0; }
+.dropdown-actions-menu button:hover { background: rgba(255, 255, 255, 0.08); }
+.dropdown-actions-menu .delete-action-item { color: #f87171; }
+.dropdown-actions-menu .delete-action-item:hover { background: rgba(239, 68, 68, 0.15); }
 
-.theme-module { display: flex; flex-direction: column; gap: 0.5rem; }
-.module-label { font-size: 0.8rem; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
-.theme-buttons-stack { display: flex; flex-direction: column; gap: 0.4rem; }
-.theme-btn { background: rgba(255, 255, 255, 0.8); border: 1px solid #ccc; padding: 0.5rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; text-align: left; transition: all 0.2s ease; }
-.theme-btn:hover { background: #fff; border-color: #333; }
-.theme-btn.active { background: #333; color: white; border-color: #333; }
+/* Inline Inputs Structure */
+.inline-edit-input { background: var(--bg-drawer); border: 1px solid var(--border-line); color: var(--text-main); border-radius: 4px; padding: 4px 8px; font-family: inherit; }
+.title-edit { font-size: 1.05rem; font-weight: 700; max-width: 200px; }
+.date-edit { font-size: 0.75rem; padding: 2px 4px; }
+.desc-edit { font-size: 0.85rem; width: 95%; min-height: 50px; resize: vertical; margin-left: 1.5rem; margin-top: 4px; }
 
-.category-builder-module { display: flex; flex-direction: column; gap: 0.75rem; }
-.category-builder-module h3 { margin: 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: #555; letter-spacing: 0.5px; }
-.builder-card { border: 2px solid #333; border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; background: rgba(255,255,255,0.5); }
-.builder-field { display: flex; flex-direction: column; gap: 0.25rem; }
-.builder-field label { font-size: 0.7rem; font-weight: 700; color: #666; text-transform: uppercase; }
-.builder-field input[type="text"] { padding: 0.46rem; border: 2px solid #333; border-radius: 4px; font-size: 0.9rem; outline: none; background: #fff; width: 100%; box-sizing: border-box; }
+.task-description-prose { margin: 0; font-size: 0.9rem; color: var(--text-main); opacity: 0.7; padding-left: 1.5rem; line-height: 1.4; }
+.item-checked { opacity: 0.55; border-color: rgba(34, 197, 94, 0.2); }
+.item-checked .task-title-text { text-decoration: line-through; opacity: 0.6; }
 
-/* Text-free clean custom select drop down */
-.clean-emoji-select {
-  padding: 0.46rem; border: 2px solid #333; border-radius: 4px; font-size: 1.1rem;
-  outline: none; background: #fff; width: 100%; text-align: center; cursor: pointer;
-  box-sizing: border-box;
-}
+/* INPUT DOCK STYLINGS */
+.creation-dock-footer { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px; background: var(--bg-surface); border: 1px solid var(--border-line); border-radius: 10px; padding: 0.85rem; box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 50; }
+.dock-form { display: flex; flex-direction: column; gap: 0.6rem; }
+.dock-primary-row { display: flex; gap: 0.75rem; }
+.dock-title-input { flex-grow: 1; background: transparent; border: none; border-bottom: 1px solid var(--border-line); padding: 0.4rem 0; color: var(--text-main); font-size: 1rem; font-family: inherit; }
+.dock-title-input:focus { outline: none; }
+.dock-submit-arrow { background: var(--bg-drawer); border: 1px solid var(--border-line); color: var(--text-main); width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dock-secondary-row { display: grid; grid-template-columns: 1fr 130px 100px 100px; gap: 0.5rem; align-items: center; }
+.dock-desc-input { background: var(--bg-drawer); border: 1px solid var(--border-line); border-radius: 5px; padding: 0.4rem; color: var(--text-main); font-size: 0.8rem; font-family: inherit; }
+.dock-date-input, .dock-select-input { background: var(--bg-drawer); border: 1px solid var(--border-line); border-radius: 5px; padding: 0.35rem; color: var(--text-main); font-size: 0.75rem; font-family: inherit; }
 
-.builder-row-twin { display: flex; gap: 0.5rem; }
-.builder-row-twin .builder-field { flex: 1; }
-.color-picker-wrapper { height: 38px; border: 2px solid #333; border-radius: 4px; overflow: hidden; background: white; }
-.color-picker-wrapper input[type="color"] { border: none; width: 100%; height: 100%; padding: 0; cursor: pointer; background: none; }
-.build-cat-btn { padding: 0.5rem; background: #333; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; transition: background 0.2s; font-size: 0.85rem; }
-.build-cat-btn:hover { background: #4784d8; }
-
-/* ==========================================================================
-   HORIZONTAL PROGRESS BAR
-   ========================================================================== */
-.horizontal-progress-container {
-  max-width: 900px; width: 100%; align-self: center; display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 2.5rem;
-}
-.progress-label-row { display: flex; justify-content: space-between; align-items: flex-end; }
-.analytics-title { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #666; }
-.analytics-percentage { font-size: 1rem; font-weight: 800; color: #222; }
-.progress-track-horizontal { width: 100%; height: 10px; border: 2px solid #333; border-radius: 10px; background: rgba(0, 0, 0, 0.05); overflow: hidden; }
-.progress-fill-horizontal { height: 100%; background: #99e289; border-radius: 10px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-
-/* ==========================================================================
-   CORE WORKSPACE VIEW LAYOUT RULES
-   ========================================================================== */
-.main-content { flex: 1; display: flex; flex-direction: column; padding: 2rem 4rem 2rem 6rem; overflow: hidden; position: relative; z-index: 1; }
-.logo { text-align: center; font-size: 2.5rem; margin: 0 0 1rem 0; font-weight: 800; letter-spacing: 4px; color: #222; transition: color 0.3s ease; }
-
-.task-stream { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; padding-right: 0.5rem; padding-bottom: 9.5rem; max-width: 900px; width: 100%; align-self: center; }
-
-/* Light Mode Base Cards */
-.task-card {
-  display: flex; justify-content: space-between; align-items: center; padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(4px); border: 2px solid #333; border-left: 8px solid #9e9e9e; border-radius: 6px; transition: all 0.3s ease;
-}
-.task-card:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(0,0,0,0.08); }
-
-/* Light Mode Conditional State Colors */
-.task-card.completed-task { background-color: rgba(241, 248, 233, 0.85); border-color: #81c784; opacity: 0.9; }
-.task-card.completed-task .title-row h4 { text-decoration: line-through; color: #757575; }
-.task-card.overdue-task { background-color: rgba(255, 235, 235, 0.9); border-color: #e57373; }
-
-.title-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
-.title-row h4 { margin: 0; font-size: 1.15rem; font-weight: 700; color: #111; transition: color 0.3s ease; }
-.description-text { margin: 0; font-size: 0.9rem; color: #666; line-height: 1.4; transition: color 0.3s ease; }
-.category-tag { font-size: 0.7rem; color: white; padding: 0.15rem 0.5rem; border-radius: 12px; font-weight: bold; text-transform: uppercase; display: inline-flex; align-items: center; gap: 0.25rem; }
-
-.task-meta { display: flex; align-items: center; gap: 1rem; position: relative; }
-.due-date-badge { font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 4px; font-weight: 600; }
-.due-date-badge.pending-due { background-color: #eceff1; color: #546e7a; }
-.due-date-badge.past-due { background-color: #ffebee; color: #c62828; font-weight: bold; }
-
-.action-btn { background: none; border: none; cursor: pointer; padding: 0.25rem; display: flex; align-items: center; justify-content: center; transition: transform 0.1s ease; }
-.action-btn:active { transform: scale(0.9); }
-.status-emoji-badge { font-size: 1.4rem; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.1)); }
-
-.menu-container { position: relative; }
-.three-dots-btn { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: #888; padding: 0 0.25rem; }
-.dropdown-menu { position: absolute; top: 100%; right: 0; background: white; border: 2px solid #333; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10; display: flex; flex-direction: column; min-width: 120px; overflow: hidden; }
-.dropdown-menu button { background: none; border: none; padding: 0.6rem 1rem; text-align: left; font-size: 0.85rem; cursor: pointer; width: 100%; }
-.dropdown-menu button:hover { background: #f5f5f5; }
-.dropdown-menu button.delete-opt { color: #d32f2f; }
-
-.edit-form-inline { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
-.inline-input, .inline-textarea, .inline-input-sub, .inline-select { padding: 0.5rem; border: 2px solid #333; border-radius: 4px; background: white; }
-.inline-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.inline-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
-.inline-actions button { padding: 0.4rem 1rem; border: 2px solid #333; font-weight: bold; border-radius: 4px; cursor: pointer; }
-.save-btn { background: #99e289; color: #222; }
-.cancel-btn { background: white; color: #555; }
-
-.construction-panel {
-  position: absolute; bottom: 2rem; border: 2px solid #333; border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; gap: 0.7rem; transition: all 0.3s ease; z-index: 5;
-  max-width: 900px; width: calc(100% - 10rem); align-self: center; left: 50%; transform: translateX(-50%); background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(6px);
-}
-.input-main-row { display: flex; gap: 1rem; }
-.input-main-row input { flex: 1; padding: 0.75rem 1rem; border: 2px solid #333; border-radius: 4px; font-size: 1.1rem; outline: none; background: #fff; }
-.send-btn { padding: 0 1.5rem; background: #333; color: white; border: none; border-radius: 4px; font-size: 1.4rem; cursor: pointer; }
-.input-details-row { display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap; }
-.desc-input { flex: 1; min-width: 200px; padding: 0.5rem; border: 2px solid #ccc; border-radius: 4px; font-size: 0.9rem; outline: none; }
-.meta-inputs { display: flex; gap: 0.5rem; }
-.meta-inputs input, .meta-inputs select { padding: 0.5rem; border: 2px solid #ccc; border-radius: 4px; background: white; outline: none; }
-
-/* ==========================================================================
-   DYNAMIC SYSTEM MASTER DARK THEME INTERCEPT MAPS
-   ========================================================================== */
-.dark-mode-dashboard { color: #e0e0e0; }
-.dark-mode-dashboard .logo { color: #fff; }
-
-/* High Contrast Dark Mode State Rules */
-.dark-mode-dashboard .task-card.completed-task {
-  background: rgba(46, 125, 50, 0.25) !important;
-  border-color: #66bb6a !important;
-  opacity: 1;
-  box-shadow: 0 0 12px rgba(74, 175, 80, 0.15);
-}
-.dark-mode-dashboard .task-card.completed-task .title-row h4 {
-  color: #a5d6a7;
-  text-decoration: line-through;
-}
-
-.dark-mode-dashboard .task-card.overdue-task {
-  background: rgba(198, 40, 40, 0.25) !important;
-  border-color: #ef5350 !important;
-  box-shadow: 0 0 12px rgba(239, 83, 80, 0.15);
-}
-.dark-mode-dashboard .task-card.overdue-task .title-row h4 {
-  color: #ff8a80;
-}
-
-.dark-mode-dashboard .task-card.pending-task {
-  background: rgba(33, 33, 38, 0.85);
-  border-color: #555562;
-}
-
-/* Sliding Taskbar Dark Overrides */
-.dark-mode-dashboard .control-taskbar { background: rgba(20, 20, 22, 0.95); border-right-color: #444; }
-.dark-mode-dashboard .taskbar-handle { background: #222; border-color: #444; }
-.dark-mode-dashboard .taskbar-divider { border-top-color: rgba(255,255,255,0.15); }
-.dark-mode-dashboard .sidebar-module h3, .dark-mode-dashboard .theme-module .module-label, .dark-mode-dashboard .category-builder-module h3 { color: #aaa; }
-.dark-mode-dashboard .progress-track-horizontal { border-color: #555; background: rgba(255,255,255,0.05); }
-.dark-mode-dashboard .analytics-title { color: #aaa; }
-.dark-mode-dashboard .analytics-percentage { color: #fff; }
-
-.dark-mode-dashboard .theme-btn { background: rgba(40, 40, 45, 0.8); border-color: #444; color: #ccc; }
-.dark-mode-dashboard .theme-btn:hover { background: #3a3a40; border-color: #888; }
-.dark-mode-dashboard .theme-btn.active { background: #fff; color: #111; border-color: #fff; }
-
-/* Category Config Dark Mode Mapping */
-.dark-mode-dashboard .builder-card { background: rgba(255,255,255,0.03); border-color: #444; }
-.dark-mode-dashboard .builder-field label { color: #888; }
-.dark-mode-dashboard .builder-field input[type="text"], .dark-mode-dashboard .clean-emoji-select { background: #1a1a1c; border-color: #444; color: #fff; }
-.dark-mode-dashboard .clean-emoji-select option { background: #222; color: #fff; }
-.dark-mode-dashboard .color-picker-wrapper { border-color: #444; background: #1a1a1c; }
-.dark-mode-dashboard .build-cat-btn { background: #444; color: #fff; }
-.dark-mode-dashboard .build-cat-btn:hover { background: #4784d8; }
-
-.dark-mode-dashboard .three-dots-btn { color: #aaa; }
-.dark-mode-dashboard .dropdown-menu { background: #252529; border-color: #555; }
-.dark-mode-dashboard .dropdown-menu button { color: #eee; }
-.dark-mode-dashboard .dropdown-menu button:hover { background: #333; }
-
-.dark-mode-dashboard .construction-panel { background: rgba(30, 30, 34, 0.9); border-color: #444; }
-.dark-mode-dashboard .input-main-row input { background: #222; border-color: #444; color: #fff; }
-.dark-mode-dashboard .send-btn { background: #555; color: #fff; }
-.dark-mode-dashboard .desc-input { background: #222; border-color: #444; color: #fff; }
-.dark-mode-dashboard .meta-inputs input, .dark-mode-dashboard .meta-inputs select { background: #222; border-color: #444; color: #fff; }
-
-.dark-mode-dashboard .inline-input, .dark-mode-dashboard .inline-textarea, .dark-mode-dashboard .inline-input-sub, .dark-mode-dashboard .inline-select { background: #222; border-color: #444; color: #fff; }
-.dark-mode-dashboard .cancel-btn { background: #333; color: #eee; }
+.api-error-banner { padding: 0.75rem; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #fca5a5; border-radius: 6px; font-size: 0.8rem; text-align: center; }
+.empty-state-placeholder { text-align: center; color: #8c858c; font-style: italic; padding: 3rem 0; font-size: 0.9rem; }
 </style>

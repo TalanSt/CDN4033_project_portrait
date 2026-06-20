@@ -7,7 +7,7 @@ const { Helpers, jsonResponses, sqliteObjects } = require("../helpers.js");
  * @param {Sequelize} sequelize
  */
 async function endpoint(app, sequelize) {
-    app.get("/api/get_tasks", async (req, res) => {
+    app.post("/api/get_tasks", async (req, res) => {
         const { token } = req.headers;
         const Token = token; // this is only here because apparently expressjs reads it in lowercase.
 

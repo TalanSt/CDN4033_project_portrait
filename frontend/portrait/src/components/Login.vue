@@ -72,7 +72,10 @@ defineProps({
   isDark: { type: Boolean, default: true }
 })
 
-const API_URL = 'https://localhost:4430/api'
+// Declare the login-success event emitter to communicate with App.vue
+const emit = defineEmits(['login-success'])
+
+const BACKEND_URL = 'https://localhost:3001/api'
 
 const isRegistering = ref(false)
 const isSubmitting = ref(false)
@@ -115,7 +118,6 @@ const toggleMode = () => {
   isRegistering.value = !isRegistering.value
   apiError.value = ''
   apiMessage.value = ''
-  // Clear layout inputs safely
   form.username = ''
   form.password = ''
   touched.username = false
@@ -136,30 +138,35 @@ const handleSubmit = async () => {
   apiError.value = ''
   apiMessage.value = ''
 
-  // Shift target route based on structural functional state
-  const endpoint = isRegistering.value ? 'register' : 'login'
+  const endpoint = isRegistering.value ? 'register' : 'sign_in'
+  const methodType = 'POST'
 
   try {
-    const response = await fetch(`${API_URL}/${endpoint}`, {
-      method: 'POST',
+    const response = await fetch(`${BACKEND_URL}/${endpoint}`, {
+      method: methodType,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: form.username, password: form.password })
     })
 
     const data = await response.json()
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Transaction rejected by security matrix.')
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || 'Transaction rejected by security endpoint.')
     }
 
     if (isRegistering.value) {
       apiMessage.value = 'Profile created! Switching to login pipeline...'
-      setTimeout(() => {
-        toggleMode()
-      }, 2000)
+      setTimeout(() => { toggleMode() }, 2000)
     } else {
-      console.log('Login successful! Authorized session metadata payload received:', data)
-      // Save your data.token to localStorage and push to main dashboard canvas view here
+      // CACHE SECURE KEYS TO LOCALSTORAGE
+      localStorage.setItem('portrait_token', data.message.token)
+      localStorage.setItem('portrait_userid', data.message.userid)
+      localStorage.setItem('portrait_username', data.message.username)
+
+      apiMessage.value = 'Authorization validated. Accessing core...'
+
+      // TRIGGER THE SHIFT: Tell App.vue that the token payload is secured!
+      emit('login-success')
     }
   } catch (err) {
     apiError.value = err.message || 'Network sync timeout encountered.'
@@ -194,7 +201,7 @@ h2 { margin: 0 0 0.5rem 0; font-size: 1.8rem; font-weight: 800; letter-spacing: 
 .toggle-mode-container { text-align: center; margin-top: 0.5rem; }
 .link-btn { background: none; border: none; color: #4784d8; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: underline; }
 
-/* DARK MODE THEME INJECTIONS */
+/* DARK MODE THEME OVERRIDES */
 .dark-mode-card { background: rgba(20, 20, 22, 0.95) !important; border-color: #444 !important; color: #e0e0e0; }
 .dark-mode-card h2 { color: #fff; }
 .dark-mode-card .subtitle { color: #aaa; }

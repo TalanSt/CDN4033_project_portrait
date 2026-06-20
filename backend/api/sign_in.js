@@ -7,7 +7,7 @@ const { Helpers, jsonResponses } = require("../helpers.js");
  * @param {Sequelize} sequelize
  */
 async function endpoint(app, sequelize) {
-    app.get("/api/sign_in", async (req, res) => {
+    app.post("/api/sign_in", async (req, res) => {
         if(!req.body) {
             return res.status(400).json(jsonResponses.missingInput);
         }
