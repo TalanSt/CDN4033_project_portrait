@@ -1,7 +1,6 @@
 <template>
   <div class="app-root-viewport" :class="{ 'light-variant': isLightVariant }">
 
-    <!-- THE ONLY PERMANENT MASTER THEME TOGGLE ICON (No text leaks) -->
     <div class="master-theme-utility">
       <button class="circular-mode-btn" @click="isLightVariant = !isLightVariant" :aria-label="isLightVariant ? 'Switch to Dark Mode' : 'Switch to Light Mode'">
         <span v-if="isLightVariant">🌙</span>
@@ -9,15 +8,16 @@
       </button>
     </div>
 
-    <!-- Explicit View Switcher Base Frame -->
-    <Dashboard
-      v-if="isAuthenticated"
-      :isLightVariant="isLightVariant"
-    />
-    <Login
-      v-else
-      @auth-success="checkAuthSession"
-    />
+    <Transition name="viewport-fade" mode="out-in">
+      <Dashboard
+        v-if="isAuthenticated"
+        :isLightVariant="isLightVariant"
+      />
+      <Login
+        v-else
+        @login-success="checkAuthSession"
+      />
+    </Transition>
   </div>
 </template>
 
@@ -76,5 +76,22 @@ html, body, #app {
 .light-variant .circular-mode-btn {
   background: #ffffff; border-color: #dcd6dc; color: #1f1a1f;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* HIGH-PERFORMANCE GPU CROSS-DISSOLVE STYLES */
+.viewport-fade-enter-active,
+.viewport-fade-leave-active {
+  transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.viewport-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.viewport-fade-leave-to {
+  opacity: 0;
+  transform: scale(1.02);
 }
 </style>

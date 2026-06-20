@@ -1,6 +1,6 @@
 <template>
   <div class="login-wrapper">
-    <div class="login-card" :class="{ 'dark-mode-card': isDark }">
+    <div class="login-card" :class="{ 'dark-mode-card': !isLightVariant }">
       <h2>P👁rtra👁t {{ isRegistering ? 'Register' : 'Auth' }}</h2>
       <p class="subtitle">
         {{ isRegistering ? 'Provision a new identity layout' : 'Access your secure workspace environment' }}
@@ -68,11 +68,11 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 
+// 3. Changed prop signature to match what App.vue is passing down
 defineProps({
-  isDark: { type: Boolean, default: true }
+  isLightVariant: { type: Boolean, default: false }
 })
 
-// Declare the login-success event emitter to communicate with App.vue
 const emit = defineEmits(['login-success'])
 
 const BACKEND_URL = 'https://localhost:3001/api'
@@ -139,11 +139,10 @@ const handleSubmit = async () => {
   apiMessage.value = ''
 
   const endpoint = isRegistering.value ? 'register' : 'sign_in'
-  const methodType = 'POST'
 
   try {
     const response = await fetch(`${BACKEND_URL}/${endpoint}`, {
-      method: methodType,
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: form.username, password: form.password })
     })
@@ -158,15 +157,23 @@ const handleSubmit = async () => {
       apiMessage.value = 'Profile created! Switching to login pipeline...'
       setTimeout(() => { toggleMode() }, 2000)
     } else {
-      // CACHE SECURE KEYS TO LOCALSTORAGE
-      localStorage.setItem('portrait_token', data.message.token)
-      localStorage.setItem('portrait_userid', data.message.userid)
-      localStorage.setItem('portrait_username', data.message.username)
+      const token = data.token || (data.message && data.message.token);
+      const userid = data.userid || (data.message && data.message.userid);
+      const username = data.username || (data.message && data.message.username);
+
+      if (!token || !userid) {
+        throw new Error("Handshake anomaly: Missing operational credentials payload.");
+      }
+
+      localStorage.setItem('portrait_token', token)
+      localStorage.setItem('portrait_userid', String(userid))
+      localStorage.setItem('portrait_username', username || form.username)
 
       apiMessage.value = 'Authorization validated. Accessing core...'
 
-      // TRIGGER THE SHIFT: Tell App.vue that the token payload is secured!
-      emit('login-success')
+      setTimeout(() => {
+        emit('login-success')
+      }, 800)
     }
   } catch (err) {
     apiError.value = err.message || 'Network sync timeout encountered.'
@@ -178,31 +185,62 @@ const handleSubmit = async () => {
 
 <style scoped>
 .login-wrapper {
-  display: flex; justify-content: center; align-items: center; width: 100vw; height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;       /* Allow parent container scaling */
+  min-height: 100vh;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
+
+/* Base style represents LIGHT MODE explicitly */
 .login-card {
-  width: 100%; max-width: 400px; padding: 2.5rem; border: 2px solid #333; border-radius: 8px;
-  background: rgba(255, 255, 255, 0.95); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); transition: all 0.3s ease;
+  width: 100%;
+  max-width: 400px;
+  padding: 2.5rem;
+  border: 2px solid #dcd6dc;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease;
+  color: #1f1a1f;
 }
-h2 { margin: 0 0 0.5rem 0; font-size: 1.8rem; font-weight: 800; letter-spacing: 2px; text-align: center; color: #111; }
-.subtitle { margin: 0 0 2rem 0; font-size: 0.9rem; color: #666; text-align: center; }
+
+h2 { margin: 0 0 0.5rem 0; font-size: 1.8rem; font-weight: 800; letter-spacing: 2px; text-align: center; color: #1f1a1f; transition: color 0.4s; }
+.subtitle { margin: 0 0 2rem 0; font-size: 0.9rem; color: #666; text-align: center; transition: color 0.4s; }
 .login-form { display: flex; flex-direction: column; gap: 1.25rem; }
 .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
-.form-group label { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #444; letter-spacing: 0.5px; }
-.form-group input { padding: 0.75rem; border: 2px solid #333; border-radius: 4px; font-size: 1rem; outline: none; background: #fff; }
+.form-group label { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; color: #444; letter-spacing: 0.5px; transition: color 0.4s; }
+.form-group input { padding: 0.75rem; border: 2px solid #c4bcc4; border-radius: 4px; font-size: 1rem; outline: none; background: #fff; color: #1f1a1f; transition: all 0.4s ease; }
 .form-group input:focus { border-color: #4784d8; }
 .form-group.has-error input { border-color: #ef5350 !important; background-color: rgba(255, 235, 235, 0.3); }
 .error-text { font-size: 0.75rem; color: #d32f2f; font-weight: 600; }
 .api-error-banner { padding: 0.75rem; border: 2px solid #c62828; background: #ffebee; color: #c62828; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }
 .api-success-banner { padding: 0.75rem; border: 2px solid #2e7d32; background: #e8f5e9; color: #2e7d32; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }
-.submit-btn { margin-top: 0.5rem; padding: 0.85rem; background: #333; color: white; border: none; border-radius: 4px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+
+.submit-btn {
+  margin-top: 0.5rem;
+  padding: 0.85rem;
+  background: #1f1a1f;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.4s, color 0.4s;
+}
 .submit-btn:disabled { background: #ccc; color: #777; cursor: not-allowed; }
 .toggle-mode-container { text-align: center; margin-top: 0.5rem; }
 .link-btn { background: none; border: none; color: #4784d8; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: underline; }
 
-/* DARK MODE THEME OVERRIDES */
-.dark-mode-card { background: rgba(20, 20, 22, 0.95) !important; border-color: #444 !important; color: #e0e0e0; }
+/* DARK MODE THEME OVERRIDES (Triggered cleanly when !isLightVariant matches true) */
+.dark-mode-card {
+  background: rgba(20, 20, 22, 0.95) !important;
+  border-color: #444 !important;
+  color: #e0e0e0 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
 .dark-mode-card h2 { color: #fff; }
 .dark-mode-card .subtitle { color: #aaa; }
 .dark-mode-card .form-group label { color: #bbb; }
@@ -212,6 +250,6 @@ h2 { margin: 0 0 0.5rem 0; font-size: 1.8rem; font-weight: 800; letter-spacing: 
 .dark-mode-card .error-text { color: #ff8a80; }
 .dark-mode-card .api-error-banner { background: rgba(198, 40, 40, 0.25); border-color: #ef5350; color: #ff8a80; }
 .dark-mode-card .api-success-banner { background: rgba(46, 125, 50, 0.25); border-color: #66bb6a; color: #a5d6a7; }
-.dark-mode-card .submit-btn { background: #444; color: #fff; }
+.dark-mode-card .submit-btn { background: #e2e8f0; color: #161216; }
 .dark-mode-card .submit-btn:disabled { background: #2a2a2c; color: #555; }
 </style>

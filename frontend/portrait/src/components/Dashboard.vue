@@ -68,15 +68,21 @@
           class="task-item-card"
           :class="{ 'item-checked': task.ischecked, 'item-overdue': isOverdue(task) && !task.ischecked }"
         >
+          <button
+            type="button"
+            class="status-toggle-checkbox"
+            @click.stop="toggleTaskStatus(task)"
+            :aria-label="task.ischecked ? 'Mark task incomplete' : 'Mark task complete'"
+          >
+            <span v-if="task.ischecked" class="checkbox-emoji status-done">✅</span>
+            <span v-else class="checkbox-emoji status-pending">❌</span>
+          </button>
+
           <div class="category-accent-bar" :style="{ backgroundColor: getTaskStatusColor(task) }"></div>
 
           <div class="card-body-content">
             <div class="row-top">
               <div class="left-meta-info">
-                <span class="status-symbol-indicator">
-                  {{ task.ischecked ? '✔️' : '❌' }}
-                </span>
-
                 <input
                   v-if="editingTaskId === task.taskid"
                   v-model="editForm.taskname"
@@ -99,10 +105,6 @@
                 <span v-else class="due-date-badge" :class="{ 'date-overdue': isOverdue(task) && !task.ischecked }">
                   📅 {{ formatDate(task.taskduedate) }}
                 </span>
-
-                <button class="state-toggle-action" @click.stop="toggleTaskStatus(task)" title="Toggle status">
-                  {{ task.ischecked ? '↩️' : '✅' }}
-                </button>
 
                 <div class="context-menu-container">
                   <button class="option-context-dots" @click.stop="toggleContextMenu(task.taskid)">⋮</button>
@@ -212,7 +214,6 @@ const newTaskForm = ref({ title: '', content: '', dueDate: '', category: 'School
 const completedTasksCount = computed(() => tasks.value.filter(t => t.ischecked === true || t.ischecked === 1 || t.ischecked === 'true').length)
 const progressPercentage = computed(() => tasks.value.length === 0 ? 0 : Math.round((completedTasksCount.value / tasks.value.length) * 100))
 
-// Utility date check
 const isOverdue = (task) => {
   if (!task.taskduedate) return false
   const targetDate = new Date(task.taskduedate)
@@ -220,7 +221,6 @@ const isOverdue = (task) => {
   return new Date() > targetDate
 }
 
-// Colors accent bar: Completed -> Green, Overdue -> Red, Normal -> Category Color
 const getTaskStatusColor = (task) => {
   if (task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true') return '#22c55e'
   if (isOverdue(task)) return '#ef4444'
@@ -240,7 +240,6 @@ const loadWorkspaceTasks = async () => {
     })
     const data = await response.json()
     if (data.success) {
-      // Ensure local mappings cleanly evaluate truthiness configurations returned from SQLite backend
       tasks.value = data.message.map(t => ({
         ...t,
         ischecked: (t.ischecked === true || t.ischecked === 1 || t.ischecked === 'true')
@@ -271,29 +270,25 @@ const createNewTaskSubmit = async () => {
   } catch (err) { console.error(err) }
 }
 
-// Fixed Status Toggle logic
 const toggleTaskStatus = async (task) => {
-  // Invert current status cleanly regardless of base typing state
   const nextCheckedState = !(task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true');
 
-  // Optimistically set status variant locally for snappier interface feedback
+  // Optimistically flip state on UI for snappiness
   task.ischecked = nextCheckedState;
 
-  // Package clean structured payload explicitly targeting your backend configurations
   const payload = {
     taskid: task.taskid,
     userid: Number(task.userid),
-    taskname: task.taskname,
-    taskcontent: task.taskcontent,
-    taskduedate: task.taskduedate,
+    taskName: task.taskname,
+    taskContent: task.taskcontent,
+    taskDueDate: task.taskduedate,
     category: task.category,
-    ischecked: nextCheckedState
+    isChecked: nextCheckedState
   };
 
-  await syncTaskUpdateBackend(payload);
+  await syncTaskUpdateBackend(payload, task, !nextCheckedState);
 }
 
-// Context Actions Management Engine
 const toggleContextMenu = (id) => {
   activeContextMenuId.value = activeContextMenuId.value === id ? null : id
 }
@@ -315,49 +310,76 @@ const saveInlineEdit = async (task) => {
   const updatedTask = {
     taskid: task.taskid,
     userid: Number(task.userid),
-    taskname: editForm.value.taskname,
-    taskcontent: editForm.value.taskcontent,
-    taskduedate: editForm.value.taskduedate,
+    taskName: editForm.value.taskname,
+    taskContent: editForm.value.taskcontent,
+    taskDueDate: editForm.value.taskduedate,
     category: task.category,
-    ischecked: (task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true')
+    isChecked: (task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true')
   }
 
   editingTaskId.value = null
-  await syncTaskUpdateBackend(updatedTask);
+  await syncTaskUpdateBackend(updatedTask, task, null);
 }
 
-const syncTaskUpdateBackend = async (taskPayload) => {
+const syncTaskUpdateBackend = async (taskPayload, originalTaskObject, rollbackState) => {
   const token = localStorage.getItem('portrait_token')
   try {
-    const response = await fetch(`${BACKEND_URL}/update_task`, {
-      method: 'POST',
-      headers: { 'token': token, 'Content-Type': 'application/json' },
+    const response = await fetch(`${BACKEND_URL}/edit_task`, {
+      method: 'PATCH',
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(taskPayload)
     })
+
     const data = await response.json()
+
     if (!data.success) {
       apiError.value = "Failed to synchronize status with storage cluster node.";
+      if (rollbackState !== null) originalTaskObject.ischecked = rollbackState;
+    } else {
+      apiError.value = ''
     }
+
     await loadWorkspaceTasks()
   } catch (err) {
     console.error(err)
     apiError.value = "Anomalous connection timeout encountered when saving runtime task."
+    if (rollbackState !== null) originalTaskObject.ischecked = rollbackState;
   }
 }
 
 const deleteTaskNode = async (taskId) => {
   const token = localStorage.getItem('portrait_token')
+  const userid = localStorage.getItem('portrait_userid')
+
   tasks.value = tasks.value.filter(t => t.taskid !== taskId)
   activeContextMenuId.value = null
 
   try {
-    await fetch(`${BACKEND_URL}/delete_task`, {
-      method: 'POST',
-      headers: { 'token': token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taskid: taskId })
+    const response = await fetch(`${BACKEND_URL}/delete_task`, {
+      method: 'DELETE',
+      headers: {
+        'token': token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        taskid: Number(taskId),
+        userid: Number(userid)
+      })
     })
+
+    const data = await response.json()
+    if (!data.success) {
+      apiError.value = "Failed to drop context task node from cluster storage."
+    }
+
     await loadWorkspaceTasks()
-  } catch (err) { console.error(err) }
+  } catch (err) {
+    console.error(err)
+    apiError.value = "Anomalous connection error dropping remote item."
+  }
 }
 
 const getCategoryPillBg = (cat) => cat?.toLowerCase() === 'school' ? 'rgba(245, 158, 11, 0.2)' : cat?.toLowerCase() === 'work' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(168, 85, 247, 0.2)'
@@ -416,35 +438,90 @@ onMounted(() => {
 
 /* TASKS CONTAINERS SETUP */
 .tasks-container-stream { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 1rem; }
-.task-item-card { background-color: var(--bg-surface); border: 1px solid var(--border-line); border-radius: 8px; display: flex; overflow: hidden; position: relative; transition: all 0.2s; }
+
+/* 🛠️ FIXED: Removed 'overflow: hidden' to allow dropdown boundaries to bleed out over borders */
+.task-item-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-line);
+  border-radius: 8px;
+  display: flex;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  padding-right: 2rem;
+}
+
+/* 💡 FIXED: Dynamically elevate the stacking order layer context of the row displaying an open context menu */
+.task-item-card:has(.dropdown-actions-menu) {
+  z-index: 90;
+}
+
 .category-accent-bar { width: 5px; flex-shrink: 0; transition: background-color 0.3s ease; }
-.card-body-content { padding: 1.25rem; flex-grow: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.card-body-content { padding: 1.25rem 0.5rem 1.25rem 1.25rem; flex-grow: 1; display: flex; flex-direction: column; gap: 0.5rem; }
 .row-top { display: flex; justify-content: space-between; align-items: center; }
 .left-meta-info { display: flex; align-items: center; gap: 0.75rem; flex-grow: 1; }
 
-/* Status Check/X markers */
-.status-symbol-indicator { font-size: 0.95rem; font-weight: bold; width: 20px; text-align: center; }
-
-.task-title-text { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; }
+.task-title-text { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; transition: opacity 0.2s, text-decoration 0.2s; }
 .category-pill-tag { font-size: 0.6rem; font-weight: 800; padding: 0.2rem 0.5rem; border-radius: 4px; color: #fff; letter-spacing: 0.5px; }
-.right-action-controls { display: flex; align-items: center; gap: 0.75rem; position: relative; }
+.right-action-controls { display: flex; align-items: center; gap: 0.75rem; position: relative; padding-right: 0.5rem; }
+
+/* FIXED SINGLE TOP-RIGHT ABSOLUTE CHECKBOX GRAPHIC */
+.status-toggle-checkbox {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  z-index: 10;
+  transition: transform 0.1s ease, background-color 0.2s ease;
+}
+.status-toggle-checkbox:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: scale(1.1);
+}
+.status-toggle-checkbox:active {
+  transform: scale(0.95);
+}
+.checkbox-emoji {
+  font-size: 0.95rem;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  display: inline-block;
+}
+.status-done {
+  filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.25));
+}
+.status-pending {
+  opacity: 0.4;
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.15));
+}
+.status-toggle-checkbox:hover .status-pending {
+  opacity: 1;
+}
 
 /* Overdue States */
 .item-overdue { border-color: rgba(239, 68, 68, 0.4); }
 .date-overdue { color: #ef4444 !important; font-weight: 800 !important; background: rgba(239, 68, 68, 0.08) !important; border-color: rgba(239, 68, 68, 0.2) !important; }
 .due-date-badge { font-size: 0.7rem; font-weight: 700; background: var(--bg-drawer); padding: 0.3rem 0.6rem; border-radius: 4px; border: 1px solid var(--border-line); color: var(--text-main); opacity: 0.9; }
 
-.state-toggle-action { background: transparent; border: none; cursor: pointer; font-size: 1.05rem; transition: transform 0.2s; padding: 0 4px; }
-.state-toggle-action:hover { transform: scale(1.15); }
 .option-context-dots { background: transparent; border: none; color: #8c858c; cursor: pointer; font-size: 1.2rem; padding: 0 6px; font-weight: 900; }
 .option-context-dots:hover { color: var(--text-main); }
 
 /* Task Dropdown Menu Box */
 .context-menu-container { position: relative; display: inline-block; }
+
+/* 🛠️ FIXED: Increased z-index window framework definition parameters to guarantee it floats over other elements */
 .dropdown-actions-menu {
   position: absolute; right: 0; top: 100%; background: var(--bg-drawer);
   border: 1px solid var(--border-line); border-radius: 6px; min-width: 100px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.3); z-index: 80; display: flex; flex-direction: column; padding: 4px 0;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4); z-index: 100; display: flex; flex-direction: column; padding: 4px 0;
 }
 .dropdown-actions-menu button {
   background: transparent; border: none; text-align: left; padding: 8px 14px;
@@ -458,11 +535,11 @@ onMounted(() => {
 .inline-edit-input { background: var(--bg-drawer); border: 1px solid var(--border-line); color: var(--text-main); border-radius: 4px; padding: 4px 8px; font-family: inherit; }
 .title-edit { font-size: 1.05rem; font-weight: 700; max-width: 200px; }
 .date-edit { font-size: 0.75rem; padding: 2px 4px; }
-.desc-edit { font-size: 0.85rem; width: 95%; min-height: 50px; resize: vertical; margin-left: 1.5rem; margin-top: 4px; }
+.desc-edit { font-size: 0.85rem; width: 95%; min-height: 50px; resize: vertical; margin-left: 0; margin-top: 4px; }
 
-.task-description-prose { margin: 0; font-size: 0.9rem; color: var(--text-main); opacity: 0.7; padding-left: 1.5rem; line-height: 1.4; }
-.item-checked { opacity: 0.55; border-color: rgba(34, 197, 94, 0.2); }
-.item-checked .task-title-text { text-decoration: line-through; opacity: 0.6; }
+.task-description-prose { margin: 0; font-size: 0.9rem; color: var(--text-main); opacity: 0.7; padding-left: 0; line-height: 1.4; }
+.item-checked { opacity: 0.5; border-color: rgba(34, 197, 94, 0.2); }
+.item-checked .task-title-text { text-decoration: line-through; opacity: 0.5; }
 
 /* INPUT DOCK STYLINGS */
 .creation-dock-footer { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); width: 100%; max-width: 640px; background: var(--bg-surface); border: 1px solid var(--border-line); border-radius: 10px; padding: 0.85rem; box-shadow: 0 10px 30px rgba(0,0,0,0.4); z-index: 50; }

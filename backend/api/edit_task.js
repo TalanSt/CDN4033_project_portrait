@@ -52,13 +52,13 @@ async function endpoint(app, sequelize) {
         if(!Helpers.checkToken(Token, user))
             return res.status(403).json(jsonResponses.forbidden);
 
-        sequelize.models.Task.update(
+        await sequelize.models.Task.update(
             {
                 taskname: taskName ?? task.taskname,
                 taskcontent: taskContent ?? task.taskcontent,
                 taskduedate: taskDueDate ?? task.taskduedate,
                 category: category ?? task.category,
-                ischecked: isChecked ?? task.isChecked
+                ischecked: isChecked ?? task.ischecked
             },
             {
                 where: {
