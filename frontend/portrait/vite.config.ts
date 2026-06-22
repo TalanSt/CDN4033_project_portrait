@@ -9,6 +9,8 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // 💡 FIX 1: Enforces safe relative file routing for static asset bundles
+  base: './',
   plugins: [
     vue(),
     vueJsx(),
@@ -19,6 +21,13 @@ export default defineConfig({
       key: fs.readFileSync(path.resolve(__dirname, '../../key.pem')),
       cert: fs.readFileSync(path.resolve(__dirname, '../../cert.pem')),
     },
-    port: 5173 // Enforces frontend onto https://localhost:5173
+    port: 5173 // Enforces frontend dev onto https://localhost:5173
   },
+  preview: {
+    https: {
+      key: fs.readFileSync(path.resolve(__dirname, '../../key.pem')),
+      cert: fs.readFileSync(path.resolve(__dirname, '../../cert.pem')),
+    },
+    port: 4173 // Enforces production preview onto https://localhost:4173
+  }
 })

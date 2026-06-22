@@ -91,7 +91,24 @@
                 <h4 v-else class="task-title-text">{{ task.taskname }}</h4>
 
                 <span class="category-pill-tag" :style="{ backgroundColor: getCategoryPillBg(task.category) }">
-                  {{ getCategoryIcon(task.category) }} {{ task.category.toUpperCase() }}
+                  {{ getCategoryIcon(task.category) }} {{ task.category?.toUpperCase() }}
+                </span>
+
+                <select
+                  v-if="editingTaskId === task.taskid"
+                  v-model="editForm.priority"
+                  class="inline-edit-input priority-edit"
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+                <span
+                  v-else
+                  class="priority-pill-tag"
+                  :class="`priority-${task.priority?.toLowerCase() || 'medium'}`"
+                >
+                  {{ getPriorityIcon(task.priority) }} {{ task.priority || 'Medium' }}
                 </span>
               </div>
 
@@ -172,7 +189,8 @@ const currentOperator = ref(localStorage.getItem('portrait_username') || 'Root')
 // Action item states
 const activeContextMenuId = ref(null)
 const editingTaskId = ref(null)
-const editForm = ref({ taskname: '', taskcontent: '', taskduedate: '' })
+// 💡 UPDATED: Added priority parameter allocation layout properties mapping
+const editForm = ref({ taskname: '', taskcontent: '', taskduedate: '', priority: 'Medium' })
 
 const ATMOSPHERE_MATRIX = {
   surrealistVoid: {
@@ -257,14 +275,18 @@ const createNewTaskSubmit = async () => {
       method: 'POST',
       headers: { 'token': token, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        userid: Number(userid), taskName: newTaskForm.value.title,
-        taskContent: newTaskForm.value.content, taskDueDate: newTaskForm.value.dueDate,
-        category: newTaskForm.value.category, isChecked: false
+        userid: Number(userid),
+        taskName: newTaskForm.value.title,
+        taskContent: newTaskForm.value.content,
+        taskDueDate: newTaskForm.value.dueDate,
+        category: newTaskForm.value.category,
+        priority: newTaskForm.value.priority, // 💡 NEW: Included priority payload mapping
+        isChecked: false
       })
     })
     const data = await response.json()
     if (data.success) {
-      newTaskForm.value.title = ''; newTaskForm.value.content = ''; newTaskForm.value.dueDate = ''
+      newTaskForm.value.title = ''; newTaskForm.value.content = ''; newTaskForm.value.dueDate = ''; newTaskForm.value.priority = 'Medium'
       await loadWorkspaceTasks()
     }
   } catch (err) { console.error(err) }
@@ -272,8 +294,6 @@ const createNewTaskSubmit = async () => {
 
 const toggleTaskStatus = async (task) => {
   const nextCheckedState = !(task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true');
-
-  // Optimistically flip state on UI for snappiness
   task.ischecked = nextCheckedState;
 
   const payload = {
@@ -283,6 +303,7 @@ const toggleTaskStatus = async (task) => {
     taskContent: task.taskcontent,
     taskDueDate: task.taskduedate,
     category: task.category,
+    priority: task.priority || 'Medium', // 💡 NEW: Preserve priority string across status changes
     isChecked: nextCheckedState
   };
 
@@ -301,7 +322,8 @@ const startInlineEdit = (task) => {
   editForm.value = {
     taskname: task.taskname,
     taskcontent: task.taskcontent,
-    taskduedate: task.taskduedate ? task.taskduedate.substring(0, 10) : ''
+    taskduedate: task.taskduedate ? task.taskduedate.substring(0, 10) : '',
+    priority: task.priority || 'Medium' // 💡 NEW: Pre-populate edit configuration model state
   }
   activeContextMenuId.value = null
 }
@@ -314,6 +336,7 @@ const saveInlineEdit = async (task) => {
     taskContent: editForm.value.taskcontent,
     taskDueDate: editForm.value.taskduedate,
     category: task.category,
+    priority: editForm.value.priority, // 💡 NEW: Maps incoming edit modifications
     isChecked: (task.ischecked === true || task.ischecked === 1 || task.ischecked === 'true')
   }
 
@@ -383,7 +406,11 @@ const deleteTaskNode = async (taskId) => {
 }
 
 const getCategoryPillBg = (cat) => cat?.toLowerCase() === 'school' ? 'rgba(245, 158, 11, 0.2)' : cat?.toLowerCase() === 'work' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(168, 85, 247, 0.2)'
-const getCategoryIcon = (cat) => cat?.toLowerCase() === 'school' ? '🎓' : cat?.toLowerCase() === 'work' ? '💼' : '🏠'
+const getCategoryIcon = (cat) => cat?.toLowerCase() === 'school' ? '🎓' : cat?.toLowerCase() === 'work' ? '💼' : '�'
+
+// 💡 NEW: Priority helpers
+const getPriorityIcon = (p) => p?.toLowerCase() === 'high' ? '🔴' : p?.toLowerCase() === 'medium' ? '�🏠' : '🟡'
+
 const formatDate = (ds) => { if (!ds) return 'Pending'; const d = new Date(ds); return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCFullYear()).substring(2)}` }
 const handleLogout = () => { localStorage.clear(); window.location.reload() }
 
@@ -439,7 +466,6 @@ onMounted(() => {
 /* TASKS CONTAINERS SETUP */
 .tasks-container-stream { width: 100%; max-width: 720px; display: flex; flex-direction: column; gap: 1rem; }
 
-/* 🛠️ FIXED: Removed 'overflow: hidden' to allow dropdown boundaries to bleed out over borders */
 .task-item-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-line);
@@ -450,7 +476,6 @@ onMounted(() => {
   padding-right: 2rem;
 }
 
-/* 💡 FIXED: Dynamically elevate the stacking order layer context of the row displaying an open context menu */
 .task-item-card:has(.dropdown-actions-menu) {
   z-index: 90;
 }
@@ -462,6 +487,20 @@ onMounted(() => {
 
 .task-title-text { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.3px; transition: opacity 0.2s, text-decoration 0.2s; }
 .category-pill-tag { font-size: 0.6rem; font-weight: 800; padding: 0.2rem 0.5rem; border-radius: 4px; color: #fff; letter-spacing: 0.5px; }
+
+/* 💡 NEW: Priority Pill Styles */
+.priority-pill-tag {
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  letter-spacing: 0.5px;
+}
+.priority-high { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+.priority-medium { background: rgba(249, 115, 22, 0.15); color: #fb923c; border-color: rgba(249, 115, 22, 0.3); }
+.priority-low { background: rgba(234, 179, 8, 0.15); color: #fde047; border-color: rgba(234, 179, 8, 0.3); }
+
 .right-action-controls { display: flex; align-items: center; gap: 0.75rem; position: relative; padding-right: 0.5rem; }
 
 /* FIXED SINGLE TOP-RIGHT ABSOLUTE CHECKBOX GRAPHIC */
@@ -517,7 +556,6 @@ onMounted(() => {
 /* Task Dropdown Menu Box */
 .context-menu-container { position: relative; display: inline-block; }
 
-/* 🛠️ FIXED: Increased z-index window framework definition parameters to guarantee it floats over other elements */
 .dropdown-actions-menu {
   position: absolute; right: 0; top: 100%; background: var(--bg-drawer);
   border: 1px solid var(--border-line); border-radius: 6px; min-width: 100px;
@@ -535,6 +573,7 @@ onMounted(() => {
 .inline-edit-input { background: var(--bg-drawer); border: 1px solid var(--border-line); color: var(--text-main); border-radius: 4px; padding: 4px 8px; font-family: inherit; }
 .title-edit { font-size: 1.05rem; font-weight: 700; max-width: 200px; }
 .date-edit { font-size: 0.75rem; padding: 2px 4px; }
+.priority-edit { font-size: 0.75rem; padding: 2px 4px; font-weight: bold; }
 .desc-edit { font-size: 0.85rem; width: 95%; min-height: 50px; resize: vertical; margin-left: 0; margin-top: 4px; }
 
 .task-description-prose { margin: 0; font-size: 0.9rem; color: var(--text-main); opacity: 0.7; padding-left: 0; line-height: 1.4; }

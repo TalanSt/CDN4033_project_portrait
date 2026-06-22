@@ -45,7 +45,7 @@ async function endpoint(app, sequelize) {
         if(!Helpers.checkToken(Token, user))
             return res.status(403).json(jsonResponses.forbidden);
 
-        const task = await sequelize.models.Task.create(sqliteObjects.task(userid, taskName, taskContent, dueDate, category, isChecked, piority));
+        const task = await sequelize.models.Task.create(sqliteObjects.task(userid, taskName, taskContent, dueDate, category, isChecked, priority));
 
 
         console.log(task);
