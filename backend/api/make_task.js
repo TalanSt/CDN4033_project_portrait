@@ -23,14 +23,14 @@ async function endpoint(app, sequelize) {
             *   isChecked: boolean
             * }}
             */
-        const { userid, taskName, taskContent, taskDueDate, category, isChecked } = req.body;
+        const { userid, taskName, taskContent, taskDueDate, category, isChecked, priority } = req.body;
 
         const dueDate = Date.parse(taskDueDate);
 
         if(!Token) 
             return res.status(401).json(jsonResponses.missingToken);
 
-        if(userid == null | !taskName | !taskContent | !taskDueDate | !category | isChecked == null)
+        if(userid == null | !taskName | !taskContent | !taskDueDate | !category | isChecked == null | !priority)
             return res.status(400).json(jsonResponses.missingInput);
 
         if(!/^[a-zA-Z0-9!@#$%^&* ]+$/.test(taskName + taskContent + category) || typeof userid != "number" || typeof isChecked != "boolean" || !dueDate)
@@ -45,7 +45,7 @@ async function endpoint(app, sequelize) {
         if(!Helpers.checkToken(Token, user))
             return res.status(403).json(jsonResponses.forbidden);
 
-        const task = await sequelize.models.Task.create(sqliteObjects.task(userid, taskName, taskContent, dueDate, category, isChecked));
+        const task = await sequelize.models.Task.create(sqliteObjects.task(userid, taskName, taskContent, dueDate, category, isChecked, piority));
 
 
         console.log(task);

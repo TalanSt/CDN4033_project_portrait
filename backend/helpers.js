@@ -273,14 +273,15 @@ class sqliteObjects {
      * @param {string} category
      * @param {boolean} ischecked
     */
-    static task = (userid, taskname, taskcontent, taskduedate, category, ischecked) => {
+    static task = (userid, taskname, taskcontent, taskduedate, category, ischecked, priority) => {
         return {
             userid: userid,
             taskname: taskname,
             taskcontent: taskcontent,
             taskduedate: taskduedate,
             category: category,
-            ischecked: ischecked
+            ischecked: ischecked,
+            priority: priority
         }
     }
 }

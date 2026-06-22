@@ -27,7 +27,7 @@ async function endpoint(app, sequelize) {
          *   isChecked: boolean
          * }}
          */
-        const { taskid, userid, taskName, taskContent, taskDueDate, category, isChecked} = req.body;
+        const { taskid, userid, taskName, taskContent, taskDueDate, category, isChecked, priority} = req.body;
 
         if(taskid == null || userid == null)
             return res.status(400).json(jsonResponses.missingInput);
@@ -58,7 +58,8 @@ async function endpoint(app, sequelize) {
                 taskcontent: taskContent ?? task.taskcontent,
                 taskduedate: taskDueDate ?? task.taskduedate,
                 category: category ?? task.category,
-                ischecked: isChecked ?? task.ischecked
+                ischecked: isChecked ?? task.ischecked,
+                priority: priority ?? task.priority
             },
             {
                 where: {

@@ -71,7 +71,8 @@ const task = sequelize.define("Task",
         taskcontent: { type: DataTypes.STRING, allowNull: false },
         taskduedate: { type: DataTypes.DATE, allowNull: false },
         category: { type: DataTypes.STRING, allowNull: false },
-        ischecked: { type: DataTypes.BOOLEAN, allowNull: false }
+        ischecked: { type: DataTypes.BOOLEAN, allowNull: false },
+        priority: { type: DataTypes.STRING, allowNull: false }
     }
 );
 
