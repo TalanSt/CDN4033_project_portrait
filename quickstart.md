@@ -32,22 +32,19 @@ along with that we need to set up the openssl and mkcert steps in order to creat
 HTTPS connection and lastly run the code:
 
 ```zsh
+# Creates the necessary openssl keys and creates a Certificate Authority
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 365 -nodes
+
+mkcert -install
+mkcert -key-file key.pem -cert-file cert.pem localhost 127.0.0.1 ::1
+
 # Moves you to the backend folder
 cd backend
 
 # Installs all required node packages
 npm install
 
-# Creates the necessary openssl keys
-openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 365 -nodes
-
-# Sends you back and creates the certificate authority
-cd ../
-mkcert -install
-mkcert -key-file key.pem -cert-file cert.pem localhost 127.0.0.1 ::1
-
-# Sends you back to backend & runs the backend
-cd backend
+# Get it running !!
 npm run start
 ```
 
